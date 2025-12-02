@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zephy's Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; padding: 40px; max-width: 1100px; margin: 0 auto; background: #f5f5f7; display: flex; gap: 30px; height: 90vh; }
+        
+        /* SIDEBAR */
+        .sidebar { flex: 1; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
+        
+        /* MAIN AREA */
+        .main-area { flex: 2; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+
+        h1, h2 { margin-top: 0; color: #333; font-size: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
+        input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        
+        /* TABS */
+        .tabs { display: flex; gap: 10px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: #e0e0e0; cursor: pointer; border-radius: 8px; font-weight: bold; color: #555; transition: 0.2s; }
+        .tab-btn.active { background: #007aff; color: white; }
+
+        /* BUTTONS */
+        button.action-btn { background: #3ecf8e; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; font-size: 14px; }
+        button.action-btn:hover { background: #34b27b; }
+        button.update-mode { background: #ffbc00; color: black; }
+        
+        .cancel-btn { background: #eee; color: #333; margin-top: 10px; display: none; width: 100%; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;}
+        
+        /* LIST ITEMS */
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .item-info { font-size: 14px; font-weight: 600; color: #333; }
+        .item-sub { font-size: 12px; color: #888; display: block; }
+        
+        .edit-btn { background: #007aff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        
+        /* CHECKBOX FIX */
+        .checkbox-list { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; }
+        .checkbox-item { display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid #eee; }
+        .checkbox-item input { width: auto; margin: 0; }
+        .checkbox-item label { margin: 0; font-weight: 500; cursor: pointer; width: 100%; }
+
+        .hidden { display: none; }
+        .status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 13px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2 id="sidebar-title">Library 📋</h2>
+        <div id="loading-list" style="color:#888; font-size:13px;">Loading...</div>
+        <div id="sidebar-list"></div>
+    </div>
+
+    <div class="main-area">
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('song')">Song Manager</button>
+            <button class="tab-btn" onclick="switchTab('playlist')">Playlist Manager</button>
+        </div>
+
+        <div id="song-form" class="card">
+            <h1 id="song-form-title">Upload Song 🎵</h1>
+            
+            <div class="form-group"><label>Title</label><input type="text" id="s-title" placeholder="Midnight Rain"></div>
+            <div class="form-group"><label>Artist</label><input type="text" id="s-artist" value="Zephy"></div>
+            <div class="form-group"><label>Album</label><input type="text" id="s-album" placeholder="Tracelets"></div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="s-type"><option>Single</option><option>EP</option><option>Album</option></select>
+            </div>
+            <div class="form-group"><label>Year</label><input type="text" id="s-year" value="2025"></div>
+            <div class="form-group"><label>Duration</label><input type="text" id="s-duration" placeholder="0:00" style="background:#f0f0f0;"></div>
+            <div class="form-group" style="display:flex; gap:10px; align-items:center;">
+                <input type="checkbox" id="s-popular" style="width:auto;"> <label style="margin:0;">Popular?</label>
+            </div>
+            <div class="form-group"><label>Description</label><input type="text" id="s-desc" placeholder="For lyrics page..."></div>
+            <div class="form-group"><label>Lyrics</label><textarea id="s-lyrics" rows="4"></textarea></div>
+            
+            <div class="form-group">
+                <label>Cover Art</label>
+                <input type="file" id="s-cover" accept="image/*">
+                <p id="s-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Audio File</label>
+                <input type="file" id="s-audio" accept="audio/*">
+            </div>
+
+            <button class="action-btn" id="btn-upload-song">UPLOAD SONG</button>
+            <button class="cancel-btn" id="btn-cancel-song">CANCEL EDIT</button>
+            <p id="status-song" class="status"></p>
+        </div>
+
+        <div id="playlist-form" class="card hidden">
+            <h1 id="playlist-form-title">Create Playlist 📜</h1>
+            <div class="form-group"><label>Playlist Title</label><input type="text" id="p-title" placeholder="Zephy's Vibe"></div>
+            <div class="form-group"><label>Description</label><input type="text" id="p-desc" placeholder="Songs for late nights..."></div>
+            
+            <div class="form-group">
+                <label>Cover Image</label>
+                <input type="file" id="p-cover" accept="image/*">
+                <p id="p-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Select Songs:</label>
+                <div id="playlist-song-selector" class="checkbox-list">
+                    </div>
+            </div>
+
+            <button class="action-btn" id="btn-create-playlist" style="background:#7928ca;">CREATE PLAYLIST</button>
+            <button class="cancel-btn" id="btn-cancel-playlist">CANCEL EDIT</button>
+            <p id="status-playlist" class="status"></p>
+        </div>
+
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://qqmmokdalfzozgoawigs.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxbW1va2RhbGZ6b3pnb2F3aWdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2OTE2NjcsImV4cCI6MjA4MDI2NzY2N30.oKYOpuYrB5la8izoLk1YNidSKrRBL6znNKFfUpcriNE';
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DATA STORE
+        let allSongs = [];
+        let allPlaylists = [];
+        
+        // EDIT STATE
+        let isEditingSong = false;
+        let editSongTitle = "";
+        let currentSongData = null;
+
+        let isEditingPlaylist = false;
+        let editPlaylistTitle = "";
+        let currentPlaylistData = null;
+
+        // --- INIT ---
+        refreshAllData();
+
+        // --- TABS & SIDEBAR TOGGLE ---
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if(tab === 'song') {
+                document.getElementById('song-form').classList.remove('hidden');
+                document.getElementById('playlist-form').classList.add('hidden');
+                renderSidebar('song'); // Show songs in sidebar
+            } else {
+                document.getElementById('song-form').classList.add('hidden');
+                document.getElementById('playlist-form').classList.remove('hidden');
+                renderSidebar('playlist'); // Show playlists in sidebar
+                populatePlaylistSelector();
+            }
+        }
+
+        // --- FETCH EVERYTHING ---
+        async function refreshAllData() {
+            document.getElementById('loading-list').style.display = 'block';
+            
+            // 1. Get Songs
+            const { data: songs } = await db.from('songs').select('*').order('year', { ascending: false });
+            if(songs) allSongs = songs;
+
+            // 2. Get Playlists
+            const { data: playlists } = await db.from('playlists').select('*');
+            if(playlists) allPlaylists = playlists;
+
+            // 3. Render current view
+            const activeTab = document.querySelector('.tab-btn.active').innerText.includes('Song') ? 'song' : 'playlist';
+            renderSidebar(activeTab);
+            
+            if(activeTab === 'playlist') populatePlaylistSelector(); // Update checkboxes if songs changed
+            
+            document.getElementById('loading-list').style.display = 'none';
+        }
+
+        function renderSidebar(type) {
+            const container = document.getElementById('sidebar-list');
+            const title = document.getElementById('sidebar-title');
+            
+            if (type === 'song') {
+                title.innerText = "All Songs 🎵";
+                container.innerHTML = allSongs.map(s => `
+                    <div class="list-item">
+                        <div><div class="item-info">${s.title}</div><span class="item-sub">${s.year} • ${s.album}</span></div>
+                        <button class="edit-btn" onclick='startEditSong(${JSON.stringify(s).replace(/'/g, "&apos;")})'>Edit</button>
+                    </div>
+                `).join('');
+            } else {
+                title.innerText = "All Playlists 📜";
+                container.innerHTML = allPlaylists.map(p => `
+                    <div class="list-item">
+                        <div><div class="item-info">${p.title}</div><span class="item-sub">${p.songs ? p.songs.length : 0} Songs</span></div>
+                        <button class="edit-btn" onclick='startEditPlaylist(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Edit</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function populatePlaylistSelector() {
+            const container = document.getElementById('playlist-song-selector');
+            container.innerHTML = allSongs.map(s => `
+                <div class="checkbox-item">
+                    <input type="checkbox" value="${s.title}" class="song-checkbox" id="cb-${s.title}">
+                    <label for="cb-${s.title}">${s.title}</label>
+                </div>
+            `).join('');
+        }
+
+        // ==========================
+        // SONG EDIT LOGIC
+        // ==========================
+        window.startEditSong = function(song) {
+            isEditingSong = true;
+            currentSongData = song;
+            editSongTitle = song.title;
+
+            document.getElementById('song-form-title').innerText = "Edit Song ✏️";
+            const btn = document.getElementById('btn-upload-song');
+            btn.innerText = "UPDATE SONG";
+            btn.classList.add('update-mode');
+            document.getElementById('btn-cancel-song').style.display = 'block';
+
+            // Fill Form
+            document.getElementById('s-title').value = song.title;
+            document.getElementById('s-artist').value = song.artist;
+            document.getElementById('s-album').value = song.album;
+            document.getElementById('s-type').value = song.type;
+            document.getElementById('s-year').value = song.year;
+            document.getElementById('s-duration').value = song.duration;
+            document.getElementById('s-desc').value = song.description || "";
+            document.getElementById('s-lyrics').value = song.lyrics || "";
+            document.getElementById('s-popular').checked = song.is_popular;
+
+            if(song.cover_url) document.getElementById('s-current-cover').style.display = 'block';
+        };
+
+        document.getElementById('btn-cancel-song').addEventListener('click', () => {
+            isEditingSong = false;
+            document.getElementById('song-form-title').innerText = "Upload Song 🎵";
+            const btn = document.getElementById('btn-upload-song');
+            btn.innerText = "UPLOAD SONG";
+            btn.classList.remove('update-mode');
+            document.getElementById('btn-cancel-song').style.display = 'none';
+            document.getElementById('s-current-cover').style.display = 'none';
+            // Clear inputs... (Optional: keep them or clear them)
+            document.getElementById('s-title').value = "";
+        });
+
+        // ==========================
+        // PLAYLIST EDIT LOGIC
+        // ==========================
+        window.startEditPlaylist = function(playlist) {
+            isEditingPlaylist = true;
+            currentPlaylistData = playlist;
+            editPlaylistTitle = playlist.title;
+
+            // Update UI
+            document.getElementById('playlist-form-title').innerText = "Edit Playlist ✏️";
+            const btn = document.getElementById('btn-create-playlist');
+            btn.innerText = "UPDATE PLAYLIST";
+            btn.classList.add('update-mode');
+            document.getElementById('btn-cancel-playlist').style.display = 'block';
+
+            // Fill Fields
+            document.getElementById('p-title').value = playlist.title;
+            document.getElementById('p-desc').value = playlist.description;
+            if(playlist.cover_url) document.getElementById('p-current-cover').style.display = 'block';
+
+            // CHECK THE BOXES
+            const currentSongs = playlist.songs || [];
+            document.querySelectorAll('.song-checkbox').forEach(cb => {
+                cb.checked = currentSongs.includes(cb.value);
+            });
+        };
+
+        document.getElementById('btn-cancel-playlist').addEventListener('click', () => {
+            isEditingPlaylist = false;
+            document.getElementById('playlist-form-title').innerText = "Create Playlist 📜";
+            const btn = document.getElementById('btn-create-playlist');
+            btn.innerText = "CREATE PLAYLIST";
+            btn.classList.remove('update-mode');
+            document.getElementById('btn-cancel-playlist').style.display = 'none';
+            document.getElementById('p-current-cover').style.display = 'none';
+            
+            // Uncheck all
+            document.querySelectorAll('.song-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('p-title').value = "";
+            document.getElementById('p-desc').value = "";
+        });
+
+        // --- UPLOAD / UPDATE SONG ACTION ---
+        document.getElementById('btn-upload-song').addEventListener('click', async () => {
+            const status = document.getElementById('status-song');
+            const btn = document.getElementById('btn-upload-song');
+            
+            const title = document.getElementById('s-title').value;
+            const coverFile = document.getElementById('s-cover').files[0];
+            const audioFile = document.getElementById('s-audio').files[0];
+
+            if(!title) { alert("Title required!"); return; }
+            if(!isEditingSong && !audioFile) { alert("Audio required for new songs!"); return; }
+
+            btn.disabled = true; status.innerText = isEditingSong ? "Updating..." : "Uploading..."; status.className = "status";
+
+            try {
+                let finalCoverUrl = isEditingSong ? currentSongData.cover_url : "https://via.placeholder.com/300";
+                let finalAudioUrl = isEditingSong ? currentSongData.mp3_url : "";
+
+                if(audioFile) {
+                    const audioName = `music/${Date.now()}-${audioFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                    await db.storage.from('audio_assets').upload(audioName, audioFile);
+                    const { data } = db.storage.from('audio_assets').getPublicUrl(audioName);
+                    finalAudioUrl = data.publicUrl;
+                }
+
+                if(coverFile) {
+                    const coverName = `covers/${Date.now()}-${coverFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                    await db.storage.from('audio_assets').upload(coverName, coverFile);
+                    const { data } = db.storage.from('audio_assets').getPublicUrl(coverName);
+                    finalCoverUrl = data.publicUrl;
+                }
+
+                const songData = {
+                    title: title,
+                    artist: document.getElementById('s-artist').value,
+                    album: document.getElementById('s-album').value,
+                    type: document.getElementById('s-type').value,
+                    year: document.getElementById('s-year').value,
+                    duration: document.getElementById('s-duration').value,
+                    is_popular: document.getElementById('s-popular').checked,
+                    description: document.getElementById('s-desc').value,
+                    lyrics: document.getElementById('s-lyrics').value,
+                    cover_url: finalCoverUrl,
+                    mp3_url: finalAudioUrl
+                };
+
+                if(isEditingSong) {
+                    const { error } = await db.from('songs').update(songData).eq('title', editSongTitle);
+                    if(error) throw error;
+                    status.innerText = "✅ Song Updated!";
+                } else {
+                    const { error } = await db.from('songs').insert([songData]);
+                    if(error) throw error;
+                    status.innerText = "✅ Song Uploaded!";
+                }
+
+                status.className = "status success";
+                btn.disabled = false;
+                document.getElementById('btn-cancel-song').click(); // Reset form
+                refreshAllData();
+
+            } catch (err) {
+                status.innerText = "❌ Error: " + err.message; status.className = "status error";
+                btn.disabled = false;
+            }
+        });
+
+        // --- CREATE / UPDATE PLAYLIST ACTION ---
+        document.getElementById('btn-create-playlist').addEventListener('click', async () => {
+            const status = document.getElementById('status-playlist');
+            const btn = document.getElementById('btn-create-playlist');
+            
+            const title = document.getElementById('p-title').value;
+            const coverFile = document.getElementById('p-cover').files[0];
+            const selectedSongs = [];
+            document.querySelectorAll('.song-checkbox:checked').forEach(cb => selectedSongs.push(cb.value));
+
+            if(!title || selectedSongs.length === 0) { alert("Title and songs required!"); return; }
+
+            btn.disabled = true; status.innerText = isEditingPlaylist ? "Updating..." : "Creating..."; status.className = "status";
+
+            try {
+                let coverUrl = isEditingPlaylist ? currentPlaylistData.cover_url : "https://via.placeholder.com/300";
+                if(coverFile) {
+                    const coverName = `covers/${Date.now()}-${coverFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                    await db.storage.from('audio_assets').upload(coverName, coverFile);
+                    const { data } = db.storage.from('audio_assets').getPublicUrl(coverName);
+                    coverUrl = data.publicUrl;
+                }
+
+                const playlistData = {
+                    title: title,
+                    description: document.getElementById('p-desc').value,
+                    cover_url: coverUrl,
+                    songs: selectedSongs
+                };
+
+                if(isEditingPlaylist) {
+                    const { error } = await db.from('playlists').update(playlistData).eq('title', editPlaylistTitle);
+                    if(error) throw error;
+                    status.innerText = "✅ Playlist Updated!";
+                } else {
+                    const { error } = await db.from('playlists').insert([playlistData]);
+                    if(error) throw error;
+                    status.innerText = "✅ Playlist Created!";
+                }
+
+                status.className = "status success";
+                btn.disabled = false;
+                document.getElementById('btn-cancel-playlist').click(); // Reset
+                refreshAllData();
+
+            } catch (err) {
+                status.innerText = "❌ Error: " + err.message; status.className = "status error";
+                btn.disabled = false;
+            }
+        });
+
+        // --- AUDIO HELPERS ---
+        document.getElementById('s-audio').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const audioPlayer = new Audio(URL.createObjectURL(file));
+                audioPlayer.onloadedmetadata = function() {
+                    const m = Math.floor(audioPlayer.duration / 60);
+                    const s = Math.floor(audioPlayer.duration % 60).toString().padStart(2, '0');
+                    document.getElementById('s-duration').value = `${m}:${s}`;
+                };
+            }
+        });
+    </script>
+</body>
+</html>

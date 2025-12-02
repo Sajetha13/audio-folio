@@ -1,0 +1,435 @@
+/* --- GLOBAL RESET (CRITICAL FOR LAYOUT) --- */
+:root {
+    --bg-color: #f5f5f7;
+    --ipod-body: #f2f2f2;
+    --ipod-wheel: #ffffff;
+    --text-main: #333;
+    --accent: #007aff;
+    --screen-bg: #fff;
+    --wheel-text: #999;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box; /* THIS PREVENTS WIDTH COLLISION */
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; 
+}
+
+/* --- THE 3-COLUMN LAYOUT --- */
+.main-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* 1. LEFT (35%) */
+.left-panel {
+    width: 35%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid #e0e0e0;
+    background: #fdfdfd;
+    flex-shrink: 0; /* Forces it to stay 35% */
+    z-index: 10;
+    box-shadow: 5px 0 15px rgba(0,0,0,0.05);
+}
+
+/* 2. MIDDLE (40%) */
+.middle-panel {
+    width: 40%;
+    height: 100%;
+    overflow-y: auto; /* It scrolls independently */
+    padding: 40px;
+    background-color: #fff;
+    flex-shrink: 0; /* Forces it to stay 40% */
+}
+
+/* 3. RIGHT (25%) */
+.lyrics-panel {
+    width: 25%;
+    height: 100%;
+    overflow-y: auto; /* It scrolls independently */
+    padding: 40px 30px;
+    background: #fafafa; /* Slightly different color to separate it */
+    border-left: 1px solid #e0e0e0;
+    flex-shrink: 0; /* Forces it to stay 25% */
+}
+
+/* --- LYRICS STYLING --- */
+.lyrics-heading {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #999;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+#lyrics-song-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 5px;
+    color: #111;
+    line-height: 1.2;
+}
+
+#lyrics-song-desc {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 20px;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.divider-small {
+    width: 100%;
+    height: 1px;
+    background: #e0e0e0;
+    margin-bottom: 25px;
+}
+
+.lyrics-text {
+    white-space: pre-wrap; /* Keeps your line breaks */
+    font-size: 14px;
+    line-height: 1.7;
+    color: #333;
+    padding-bottom: 50px;
+}
+
+/* --- ARTIST PAGE STYLING (Middle Panel) --- */
+.zz-title { font-size: 32px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; letter-spacing: -1px; color: #000; }
+.zz-subtitle { font-size: 16px; color: #666; margin-bottom: 25px; font-style: italic; }
+.zz-artist { font-size: 15px; margin-bottom: 25px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.zz-controls { font-size: 13px; margin-bottom: 40px; color: #555; cursor: pointer; font-weight: 600; }
+.zz-controls span:hover { color: #007aff; text-decoration: underline; }
+
+.zz-section-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: #000; letter-spacing: -0.5px; }
+.show-all-link { font-size: 12px; text-decoration: underline; cursor: pointer; color: #666; font-weight: 600; }
+.show-all-link:hover { color: #000; }
+
+.zz-popular-list { list-style: none; margin-bottom: 40px; }
+.zz-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.1s; }
+.zz-row:hover { background: #f9f9f9; }
+.zz-row-left { display: flex; gap: 15px; align-items: center; font-weight: 500; }
+
+.zz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 20px; margin-bottom: 50px; }
+.zz-card { cursor: pointer; transition: transform 0.2s; }
+.zz-card:hover { transform: translateY(-3px); }
+.zz-cover-placeholder { 
+    width: 100%; aspect-ratio: 1/1; background: #eee; margin-bottom: 12px; border-radius: 8px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; color: #999; font-size: 11px;
+}
+.zz-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #000; }
+.zz-card p { font-size: 12px; color: #777; }
+
+/* --- IPOD STYLES --- */
+.ipod-case {
+    width: 320px; height: 540px; 
+    background: linear-gradient(135deg, #e0e0e0, #ffffff);
+    border-radius: 35px;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 25px 25px 50px rgba(0,0,0,0.15), -10px -10px 40px rgba(255,255,255,1);
+    display: flex; flex-direction: column; align-items: center; padding: 28px; position: relative; border: 1px solid #ccc;
+}
+.screen-area { width: 100%; height: 220px; background-color: #222; border-radius: 10px; padding: 5px; margin-bottom: 30px; }
+.screen-content { background: linear-gradient(to bottom, #dbe4eb, #bdd4e7); width: 100%; height: 100%; border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.top-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 8px; font-size: 10px; font-weight: 700; color: #444; height: 20px; }
+.top-left { display: flex; gap: 5px; width: 60px; }
+.status-icon { font-size: 9px; color: #333; }
+.status-icon.hidden { display: none; }
+.now-playing-view { flex-grow: 1; display: flex; padding: 15px; gap: 12px; align-items: center; }
+.album-art-placeholder { width: 90px; height: 90px; background: #444; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 28px; box-shadow: 3px 3px 6px rgba(0,0,0,0.3); border-radius: 4px; }
+.track-info h3 { font-size: 15px; margin-bottom: 4px; color: #000; }
+.track-info p { font-size: 11px; color: #555; font-weight: 500;}
+.scrubber { padding: 8px 12px; display: flex; align-items: center; gap: 8px; font-size: 9px; font-weight: 700; color: #444; }
+.progress-bar { flex-grow: 1; height: 8px; background: #fff; border: 1px solid #999; position: relative; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2); }
+.fill { width: 0%; height: 100%; background: #5e97d1; }
+.click-wheel { width: 210px; height: 210px; background-color: var(--ipod-wheel); border-radius: 50%; position: relative; box-shadow: 0 8px 20px rgba(0,0,0,0.15); cursor: pointer; }
+.wheel-btn { position: absolute; color: var(--wheel-text); font-size: 16px; font-weight: 700; user-select: none; transition: color 0.2s; }
+.click-wheel:active .wheel-btn { color: #555; }
+.menu-btn { top: 18px; left: 50%; transform: translateX(-50%); }
+.next-btn { right: 18px; top: 50%; transform: translateY(-50%); }
+.prev-btn { left: 18px; top: 50%; transform: translateY(-50%); }
+.play-btn { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;}
+.center-button { width: 75px; height: 75px; background: linear-gradient(145deg, #f0f0f0, #e6e6e6); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: inset 0 2px 5px rgba(255,255,255,1), 0 5px 10px rgba(0,0,0,0.1); }
+.center-button:active { background: #dcdcdc; transform: translate(-50%, -50%) scale(0.96); }
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+/* --- LOADING SKELETON ANIMATION --- */
+.skeleton-wrapper {
+    padding: 50px 60px;
+    width: 100%;
+    height: 100%;
+}
+
+.skeleton {
+    background: #eee;
+    background: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%);
+    border-radius: 6px;
+    background-size: 200% 100%;
+    animation: 1.5s shine linear infinite;
+}
+
+@keyframes shine {
+    to { background-position-x: -200%; }
+}
+
+.sk-header { width: 60%; height: 40px; margin-bottom: 10px; }
+.sk-sub { width: 40%; height: 20px; margin-bottom: 30px; }
+.sk-btn { width: 120px; height: 40px; border-radius: 20px; display: inline-block; margin-right: 10px; }
+
+.sk-list-item {
+    width: 100%;
+    height: 50px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.sk-grid {
+    display: flex;
+    gap: 20px;
+    margin-top: 40px;
+}
+
+.sk-card {
+    width: 150px;
+    height: 150px;
+    border-radius: 8px;
+}
+
+/* --- NEW SHOW ALL LIST DESIGN --- */
+/* --- NEW SPOTIFY-STYLE LAYOUT --- */
+
+/* 1. Spacing for the Back Link */
+.back-nav-area {
+    margin-bottom: 40px; /* Big gap below "Back to Home" */
+    padding-top: 10px;
+}
+
+.back-link {
+    font-size: 13px;
+    font-weight: 700;
+    color: #666;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s;
+}
+.back-link:hover { color: #000; text-decoration: underline; }
+
+/* 2. Release Container (Holds the Header + Tracklist) */
+.zz-release-container {
+    margin-bottom: 60px; /* Space between different albums */
+}
+
+/* 3. The Header (Cover + Info side-by-side) */
+.zz-release-header {
+    display: flex;
+    gap: 25px; /* Gap between cover and text */
+    margin-bottom: 25px;
+    align-items: flex-end; /* Align text to bottom of image like Spotify */
+}
+
+.release-cover {
+    width: 140px; 
+    height: 140px;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.release-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    /* height: 140px; Remove fixed height to let it grow naturally */ 
+}
+
+.release-type {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.release-title {
+    font-size: 32px; /* Large Title */
+    font-weight: 900;
+    color: #000;
+    line-height: 1.1;
+    margin-bottom: 15px;
+    letter-spacing: -1px;
+}
+
+.release-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+}
+
+/* 4. The BLACK Play Button */
+.play-btn-black {
+    width: 35px;  /* Smaller size */
+    height: 35px;
+    border-radius: 50%;
+    background-color: #000; /* Black */
+    color: #fff;
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px; /* Smaller icon */
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.play-btn-black:hover {
+    transform: scale(1.05);
+    background-color: #333; /* Dark Grey on hover */
+}
+
+/* 5. The Tracklist (Simple rows below header) */
+.zz-track-list {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 10px;
+    border-top: 1px solid #eee; /* Divider line */
+}
+
+.zz-track-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 10px;
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.zz-track-row:hover { background-color: #f7f7f7; }
+
+.track-idx {
+    width: 30px;
+    color: #888;
+    font-size: 14px;
+    text-align: center;
+}
+
+.track-name {
+    flex-grow: 1;
+    font-weight: 600;
+    font-size: 14px;
+    color: #222;
+    margin-left: 10px;
+}
+
+.track-time {
+    font-size: 12px;
+    color: #888;
+    font-family: monospace;
+}
+
+
+/* =========================================
+   1. LANDSCAPE LOCK (Phones Only)
+   ========================================= */
+#rotate-warning {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: #111;
+    color: #fff;
+    z-index: 9999;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* If screen is short (landscape phone) AND narrow */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    #rotate-warning { display: flex; }
+    .main-container { display: none; } /* Hide the app */
+}
+
+/* =========================================
+   2. MOBILE RESPONSIVENESS (Portrait Phones)
+   ========================================= */
+
+/* Triggers ONLY on screens smaller than 768px (Phones) 
+   Tablets (768px) will keep the 3-column desktop layout. */
+@media screen and (max-width: 767px) {
+    
+    /* Unlock page scroll */
+    body {
+        overflow-y: auto;
+        height: auto;
+    }
+
+    /* Stack columns vertically */
+    .main-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    /* Make panels full width */
+    .left-panel, 
+    .middle-panel, 
+    .lyrics-panel {
+        width: 100%;
+        height: auto;
+        border: none;
+        flex-shrink: 0;
+        overflow: visible;
+    }
+
+    /* --- SPECIFIC TWEAKS --- */
+
+    /* Panel A: The iPod */
+    .left-panel {
+        padding: 40px 0;
+        background-color: #e0e0e0;
+        min-height: 600px;
+    }
+    
+    .ipod-case { transform: scale(0.9); }
+
+    /* Panel B: Artist Page */
+    .middle-panel {
+        padding: 30px 20px;
+        border-radius: 20px 20px 0 0;
+        margin-top: -20px;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+        z-index: 20; /* Sit on top of grey bg */
+    }
+
+    /* Panel C: Lyrics */
+    .lyrics-panel {
+        padding: 40px 20px;
+        background: #f8f8f8;
+        border-top: 1px solid #ddd;
+    }
+
+    .zz-grid { grid-template-columns: repeat(2, 1fr); }
+    .zz-title { font-size: 28px; }
+}

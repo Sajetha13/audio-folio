@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zephy's Audio Folio | Zippiyzap Archives</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- FIX 1: Clean Links for Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- FIX 2: Clean Script Tag for Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-alt" style="transform: rotate(90deg); font-size: 40px; margin-bottom: 20px;"></i>
+        <h2>Please Rotate to Portrait</h2>
+        <p>This experience is designed for vertical viewing on mobile.</p>
+    </div>
+
+    <div class="main-container">
+
+        <!-- 1. LEFT PANEL: The iPod -->
+        <div class="left-panel">
+            <div class="ipod-case">
+                <div class="screen-area">
+                    <div class="screen-content" id="ipod-screen">
+                        <div class="top-bar">
+                            <div class="top-left">
+                                <span class="lock-icon"><i class="fas fa-lock"></i></span>
+                                <span id="status-shuffle" class="status-icon hidden"><i class="fas fa-random"></i></span>
+                                <span id="status-repeat" class="status-icon hidden"><i class="fas fa-redo"></i></span>
+                                <span id="status-repeat-1" class="status-icon hidden"><i class="fas fa-redo"></i><sup>1</sup></span>
+                            </div>
+                            <span class="header-title">Now Playing</span>
+                            <span class="battery-icon"><i class="fas fa-battery-full"></i></span>
+                        </div>
+                        
+                        <div class="now-playing-view">
+                            <div class="album-art-placeholder" id="album-art">
+                                <i class="fas fa-music"></i>
+                            </div>
+                            <div class="track-info">
+                                <h3 id="player-title">Loading...</h3>
+                                <p id="player-artist">Connecting...</p>
+                                <p id="player-album">...</p>
+                            </div>
+                        </div>
+
+                        <div class="scrubber">
+                            <span id="curr-time">0:00</span>
+                            <div class="progress-bar"><div class="fill"></div></div>
+                            <span id="total-time">-:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="click-wheel">
+                    <div class="wheel-btn menu-btn">MENU</div>
+                    <div class="wheel-btn next-btn"><i class="fas fa-forward"></i></div>
+                    <div class="wheel-btn prev-btn"><i class="fas fa-backward"></i></div>
+                    <div class="wheel-btn play-btn"><i class="fas fa-play"></i><i class="fas fa-pause"></i></div>
+                    <div class="center-button" id="select-btn"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. MIDDLE PANEL (With Skeleton Loader) -->
+        <div class="middle-panel">
+            <div class="skeleton-wrapper">
+                <div class="skeleton sk-header"></div>
+                <div class="skeleton sk-sub"></div>
+                <div style="margin-bottom: 40px;">
+                    <div class="skeleton sk-btn"></div>
+                    <div class="skeleton sk-btn" style="width: 80px;"></div>
+                </div>
+                
+                <div class="skeleton sk-sub" style="width: 30%; margin-top: 20px;"></div>
+                <div class="skeleton sk-list-item"></div>
+                <div class="skeleton sk-list-item"></div>
+                <div class="skeleton sk-list-item"></div>
+                <div class="skeleton sk-list-item"></div>
+
+                <div class="sk-grid">
+                    <div class="skeleton sk-card"></div>
+                    <div class="skeleton sk-card"></div>
+                    <div class="skeleton sk-card"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. LYRICS PANEL -->
+        <div class="lyrics-panel">
+            <h2 class="lyrics-heading">LYRICS</h2>
+            <h3 id="lyrics-song-title">...</h3>
+            <p id="lyrics-song-desc">...</p>
+            <div class="divider-small"></div>
+            <div id="lyrics-text" class="lyrics-text">
+                <div class="skeleton" style="width: 100%; height: 20px; margin-bottom: 8px;"></div>
+                <div class="skeleton" style="width: 80%; height: 20px; margin-bottom: 8px;"></div>
+                <div class="skeleton" style="width: 90%; height: 20px; margin-bottom: 8px;"></div>
+            </div>
+        </div>
+
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
