@@ -6,17 +6,23 @@
     <title>Zephy's Admin Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; padding: 40px; max-width: 1100px; margin: 0 auto; background: #f5f5f7; display: flex; gap: 30px; height: 90vh; }
+        body { font-family: 'Inter', sans-serif; padding: 40px; max-width: 1100px; margin: 0 auto; background: #f5f5f7; height: 90vh; }
         
-        /* SIDEBAR */
+        /* LOGIN SCREEN */
+        #login-container {
+            max-width: 400px; margin: 100px auto; background: white; padding: 40px;
+            border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center;
+        }
+
+        /* DASHBOARD LAYOUT (Hidden by default) */
+        #dashboard-container { display: none; gap: 30px; height: 100%; }
+        
         .sidebar { flex: 1; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow-y: auto; display: flex; flex-direction: column; }
-        
-        /* MAIN AREA */
         .main-area { flex: 2; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
         .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 
         h1, h2 { margin-top: 0; color: #333; font-size: 20px; }
-        .form-group { margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; text-align: left; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
         input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         
@@ -30,18 +36,18 @@
         button.action-btn:hover { background: #34b27b; }
         button.update-mode { background: #ffbc00; color: black; }
         
-        .cancel-btn { background: #eee; color: #333; margin-top: 10px; display: none; width: 100%; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;}
+        #cancel-btn, .cancel-btn { background: #eee; color: #333; margin-top: 10px; display: none; width: 100%; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;}
         
         /* LIST ITEMS */
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .item-info { font-size: 14px; font-weight: 600; color: #333; }
-        .item-sub { font-size: 12px; color: #888; display: block; }
+        .song-item, .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .song-info, .item-info { font-size: 14px; font-weight: 600; color: #333; }
+        .song-sub, .item-sub { font-size: 12px; color: #888; display: block; }
         
         .edit-btn { background: #007aff; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
         
         /* CHECKBOX FIX */
         .checkbox-list { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 6px; background: #fafafa; }
-        .checkbox-item { display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid #eee; }
+        .checkbox-item { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 8px; border-bottom: 1px solid #eee; }
         .checkbox-item input { width: auto; margin: 0; }
         .checkbox-item label { margin: 0; font-weight: 500; cursor: pointer; width: 100%; }
 
@@ -53,75 +59,71 @@
 </head>
 <body>
 
-    <div class="sidebar">
-        <h2 id="sidebar-title">Library 📋</h2>
-        <div id="loading-list" style="color:#888; font-size:13px;">Loading...</div>
-        <div id="sidebar-list"></div>
+    <div id="login-container">
+        <h1>Admin Access 🔒</h1>
+        <p style="color:#666; font-size:14px;">Please sign in to manage your portfolio.</p>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="admin@zephy.com">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="********">
+        </div>
+        <button class="action-btn" id="btn-login" style="background:#007aff;">LOGIN</button>
+        <p id="login-status" class="status"></p>
     </div>
 
-    <div class="main-area">
-        
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('song')">Song Manager</button>
-            <button class="tab-btn" onclick="switchTab('playlist')">Playlist Manager</button>
+    <div id="dashboard-container">
+        <div class="sidebar">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="sidebar-title" style="margin:0;">Library 📋</h2>
+                <button onclick="logout()" style="background:none; border:none; color:red; cursor:pointer; font-size:12px;">Logout</button>
+            </div>
+            <div id="loading-list" style="color:#888; font-size:13px; margin-top:10px;">Loading...</div>
+            <div id="sidebar-list"></div>
         </div>
 
-        <div id="song-form" class="card">
-            <h1 id="song-form-title">Upload Song 🎵</h1>
-            
-            <div class="form-group"><label>Title</label><input type="text" id="s-title" placeholder="Midnight Rain"></div>
-            <div class="form-group"><label>Artist</label><input type="text" id="s-artist" value="Zephy"></div>
-            <div class="form-group"><label>Album</label><input type="text" id="s-album" placeholder="Tracelets"></div>
-            <div class="form-group">
-                <label>Type</label>
-                <select id="s-type"><option>Single</option><option>EP</option><option>Album</option></select>
-            </div>
-            <div class="form-group"><label>Year</label><input type="text" id="s-year" value="2025"></div>
-            <div class="form-group"><label>Duration</label><input type="text" id="s-duration" placeholder="0:00" style="background:#f0f0f0;"></div>
-            <div class="form-group" style="display:flex; gap:10px; align-items:center;">
-                <input type="checkbox" id="s-popular" style="width:auto;"> <label style="margin:0;">Popular?</label>
-            </div>
-            <div class="form-group"><label>Description</label><input type="text" id="s-desc" placeholder="For lyrics page..."></div>
-            <div class="form-group"><label>Lyrics</label><textarea id="s-lyrics" rows="4"></textarea></div>
-            
-            <div class="form-group">
-                <label>Cover Art</label>
-                <input type="file" id="s-cover" accept="image/*">
-                <p id="s-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p>
-            </div>
-            
-            <div class="form-group">
-                <label>Audio File</label>
-                <input type="file" id="s-audio" accept="audio/*">
+        <div class="main-area">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('song')">Song Manager</button>
+                <button class="tab-btn" onclick="switchTab('playlist')">Playlist Manager</button>
             </div>
 
-            <button class="action-btn" id="btn-upload-song">UPLOAD SONG</button>
-            <button class="cancel-btn" id="btn-cancel-song">CANCEL EDIT</button>
-            <p id="status-song" class="status"></p>
+            <div id="song-form" class="card">
+                <h1 id="song-form-title">Upload Song 🎵</h1>
+                <div class="form-group"><label>Title</label><input type="text" id="s-title" placeholder="Midnight Rain"></div>
+                <div class="form-group"><label>Artist</label><input type="text" id="s-artist" value="Zephy"></div>
+                <div class="form-group"><label>Album</label><input type="text" id="s-album" placeholder="Tracelets"></div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="s-type"><option>Single</option><option>EP</option><option>Album</option></select>
+                </div>
+                <div class="form-group"><label>Year</label><input type="text" id="s-year" value="2025"></div>
+                <div class="form-group"><label>Duration</label><input type="text" id="s-duration" placeholder="0:00" style="background:#f0f0f0;"></div>
+                <div class="form-group" style="display:flex; gap:10px; align-items:center;">
+                    <input type="checkbox" id="s-popular" style="width:auto;"> <label style="margin:0;">Popular?</label>
+                </div>
+                <div class="form-group"><label>Description</label><input type="text" id="s-desc" placeholder="For lyrics page..."></div>
+                <div class="form-group"><label>Lyrics</label><textarea id="s-lyrics" rows="4"></textarea></div>
+                <div class="form-group"><label>Cover Art</label><input type="file" id="s-cover" accept="image/*"><p id="s-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p></div>
+                <div class="form-group"><label>Audio File</label><input type="file" id="s-audio" accept="audio/*"></div>
+                <button class="action-btn" id="btn-upload-song">UPLOAD SONG</button>
+                <button class="cancel-btn" id="btn-cancel-song">CANCEL EDIT</button>
+                <p id="status-song" class="status"></p>
+            </div>
+
+            <div id="playlist-form" class="card hidden">
+                <h1 id="playlist-form-title">Create Playlist 📜</h1>
+                <div class="form-group"><label>Playlist Title</label><input type="text" id="p-title" placeholder="Zephy's Vibe"></div>
+                <div class="form-group"><label>Description</label><input type="text" id="p-desc" placeholder="Songs for late nights..."></div>
+                <div class="form-group"><label>Cover Image</label><input type="file" id="p-cover" accept="image/*"><p id="p-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p></div>
+                <div class="form-group"><label>Select Songs:</label><div id="playlist-song-selector" class="checkbox-list"></div></div>
+                <button class="action-btn" id="btn-create-playlist" style="background:#7928ca;">CREATE PLAYLIST</button>
+                <button class="cancel-btn" id="btn-cancel-playlist">CANCEL EDIT</button>
+                <p id="status-playlist" class="status"></p>
+            </div>
         </div>
-
-        <div id="playlist-form" class="card hidden">
-            <h1 id="playlist-form-title">Create Playlist 📜</h1>
-            <div class="form-group"><label>Playlist Title</label><input type="text" id="p-title" placeholder="Zephy's Vibe"></div>
-            <div class="form-group"><label>Description</label><input type="text" id="p-desc" placeholder="Songs for late nights..."></div>
-            
-            <div class="form-group">
-                <label>Cover Image</label>
-                <input type="file" id="p-cover" accept="image/*">
-                <p id="p-current-cover" style="font-size:11px; color:#007aff; display:none;">Current file exists</p>
-            </div>
-            
-            <div class="form-group">
-                <label>Select Songs:</label>
-                <div id="playlist-song-selector" class="checkbox-list">
-                    </div>
-            </div>
-
-            <button class="action-btn" id="btn-create-playlist" style="background:#7928ca;">CREATE PLAYLIST</button>
-            <button class="cancel-btn" id="btn-cancel-playlist">CANCEL EDIT</button>
-            <p id="status-playlist" class="status"></p>
-        </div>
-
     </div>
 
     <script>
@@ -136,15 +138,56 @@
         
         // EDIT STATE
         let isEditingSong = false;
-        let editSongTitle = "";
         let currentSongData = null;
-
         let isEditingPlaylist = false;
-        let editPlaylistTitle = "";
         let currentPlaylistData = null;
 
-        // --- INIT ---
-        refreshAllData();
+        // --- AUTH CHECK ON LOAD ---
+        checkSession();
+
+        async function checkSession() {
+            const { data } = await db.auth.getSession();
+            if (data.session) {
+                // User is logged in
+                showDashboard();
+            } else {
+                // User must log in
+                document.getElementById('login-container').style.display = 'block';
+                document.getElementById('dashboard-container').style.display = 'none';
+            }
+        }
+
+        // --- LOGIN LOGIC ---
+        document.getElementById('btn-login').addEventListener('click', async () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const status = document.getElementById('login-status');
+
+            status.innerText = "Verifying...";
+            
+            const { data, error } = await db.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                status.innerText = "❌ " + error.message;
+                status.className = "status error";
+            } else {
+                showDashboard();
+            }
+        });
+
+        function showDashboard() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('dashboard-container').style.display = 'flex';
+            refreshAllData();
+        }
+
+        window.logout = async () => {
+            await db.auth.signOut();
+            window.location.reload();
+        }
 
         // --- TABS & SIDEBAR TOGGLE ---
         window.switchTab = (tab) => {
@@ -154,11 +197,11 @@
             if(tab === 'song') {
                 document.getElementById('song-form').classList.remove('hidden');
                 document.getElementById('playlist-form').classList.add('hidden');
-                renderSidebar('song'); // Show songs in sidebar
+                renderSidebar('song'); 
             } else {
                 document.getElementById('song-form').classList.add('hidden');
                 document.getElementById('playlist-form').classList.remove('hidden');
-                renderSidebar('playlist'); // Show playlists in sidebar
+                renderSidebar('playlist'); 
                 populatePlaylistSelector();
             }
         }
@@ -167,20 +210,16 @@
         async function refreshAllData() {
             document.getElementById('loading-list').style.display = 'block';
             
-            // 1. Get Songs
             const { data: songs } = await db.from('songs').select('*').order('year', { ascending: false });
             if(songs) allSongs = songs;
 
-            // 2. Get Playlists
             const { data: playlists } = await db.from('playlists').select('*');
             if(playlists) allPlaylists = playlists;
 
-            // 3. Render current view
             const activeTab = document.querySelector('.tab-btn.active').innerText.includes('Song') ? 'song' : 'playlist';
             renderSidebar(activeTab);
             
-            if(activeTab === 'playlist') populatePlaylistSelector(); // Update checkboxes if songs changed
-            
+            if(activeTab === 'playlist') populatePlaylistSelector();
             document.getElementById('loading-list').style.display = 'none';
         }
 
@@ -223,7 +262,6 @@
         window.startEditSong = function(song) {
             isEditingSong = true;
             currentSongData = song;
-            editSongTitle = song.title;
 
             document.getElementById('song-form-title').innerText = "Edit Song ✏️";
             const btn = document.getElementById('btn-upload-song');
@@ -231,7 +269,6 @@
             btn.classList.add('update-mode');
             document.getElementById('btn-cancel-song').style.display = 'block';
 
-            // Fill Form
             document.getElementById('s-title').value = song.title;
             document.getElementById('s-artist').value = song.artist;
             document.getElementById('s-album').value = song.album;
@@ -253,7 +290,6 @@
             btn.classList.remove('update-mode');
             document.getElementById('btn-cancel-song').style.display = 'none';
             document.getElementById('s-current-cover').style.display = 'none';
-            // Clear inputs... (Optional: keep them or clear them)
             document.getElementById('s-title').value = "";
         });
 
@@ -263,21 +299,17 @@
         window.startEditPlaylist = function(playlist) {
             isEditingPlaylist = true;
             currentPlaylistData = playlist;
-            editPlaylistTitle = playlist.title;
 
-            // Update UI
             document.getElementById('playlist-form-title').innerText = "Edit Playlist ✏️";
             const btn = document.getElementById('btn-create-playlist');
             btn.innerText = "UPDATE PLAYLIST";
             btn.classList.add('update-mode');
             document.getElementById('btn-cancel-playlist').style.display = 'block';
 
-            // Fill Fields
             document.getElementById('p-title').value = playlist.title;
             document.getElementById('p-desc').value = playlist.description;
             if(playlist.cover_url) document.getElementById('p-current-cover').style.display = 'block';
 
-            // CHECK THE BOXES
             const currentSongs = playlist.songs || [];
             document.querySelectorAll('.song-checkbox').forEach(cb => {
                 cb.checked = currentSongs.includes(cb.value);
@@ -292,14 +324,11 @@
             btn.classList.remove('update-mode');
             document.getElementById('btn-cancel-playlist').style.display = 'none';
             document.getElementById('p-current-cover').style.display = 'none';
-            
-            // Uncheck all
             document.querySelectorAll('.song-checkbox').forEach(cb => cb.checked = false);
             document.getElementById('p-title').value = "";
-            document.getElementById('p-desc').value = "";
         });
 
-        // --- UPLOAD / UPDATE SONG ACTION ---
+        // --- UPLOAD / UPDATE SONG ---
         document.getElementById('btn-upload-song').addEventListener('click', async () => {
             const status = document.getElementById('status-song');
             const btn = document.getElementById('btn-upload-song');
@@ -346,7 +375,7 @@
                 };
 
                 if(isEditingSong) {
-                    const { error } = await db.from('songs').update(songData).eq('title', editSongTitle);
+                    const { error } = await db.from('songs').update(songData).eq('title', currentSongData.title);
                     if(error) throw error;
                     status.innerText = "✅ Song Updated!";
                 } else {
@@ -357,7 +386,7 @@
 
                 status.className = "status success";
                 btn.disabled = false;
-                document.getElementById('btn-cancel-song').click(); // Reset form
+                document.getElementById('btn-cancel-song').click();
                 refreshAllData();
 
             } catch (err) {
@@ -366,7 +395,7 @@
             }
         });
 
-        // --- CREATE / UPDATE PLAYLIST ACTION ---
+        // --- CREATE / UPDATE PLAYLIST ---
         document.getElementById('btn-create-playlist').addEventListener('click', async () => {
             const status = document.getElementById('status-playlist');
             const btn = document.getElementById('btn-create-playlist');
@@ -397,7 +426,7 @@
                 };
 
                 if(isEditingPlaylist) {
-                    const { error } = await db.from('playlists').update(playlistData).eq('title', editPlaylistTitle);
+                    const { error } = await db.from('playlists').update(playlistData).eq('title', currentPlaylistData.title);
                     if(error) throw error;
                     status.innerText = "✅ Playlist Updated!";
                 } else {
@@ -408,7 +437,7 @@
 
                 status.className = "status success";
                 btn.disabled = false;
-                document.getElementById('btn-cancel-playlist').click(); // Reset
+                document.getElementById('btn-cancel-playlist').click();
                 refreshAllData();
 
             } catch (err) {
