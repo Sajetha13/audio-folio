@@ -9,18 +9,17 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let songs = []; // Empty start, we fill this from DB
 
-// --- 2. FETCH SONGS FUNCTION ---
-// --- 2. FETCH SONGS & PLAYLISTS ---
+// --- 2. FETCH DATA (SONGS + PLAYLISTS) ---
 async function fetchSongs() {
     console.log("Fetching library...");
     
-    // 1. Fetch Songs
+    // 1. Fetch Songs: SORT BY YEAR (Newest First)
     const { data: songData, error: songError } = await db
         .from('songs')
         .select('*')
-        .order('year', { ascending: false }); 
+        .order('year', { ascending: false }); // <--- BACK TO YEAR SORT
 
-    // 2. Fetch Playlists (NEW)
+    // 2. Fetch Playlists
     const { data: playlistData, error: plError } = await db
         .from('playlists')
         .select('*');
@@ -30,7 +29,7 @@ async function fetchSongs() {
         return;
     }
 
-    // Map Songs
+    // Map Songs (ADD trackOrder here!)
     songs = songData.map(item => ({
         title: item.title,
         artist: item.artist,
@@ -42,19 +41,19 @@ async function fetchSongs() {
         cover: item.cover_url,
         isPopular: item.is_popular,
         description: item.description,
-        lyrics: item.lyrics
+        lyrics: item.lyrics,
+        trackOrder: item.track_order || 0 // <--- NEW: Read the order number
     }));
 
-    // Save Playlists to global variable
+    // Map Playlists
     if (playlistData) {
         playlists = playlistData;
     }
 
-    // Initialize App
+    // Initialize
     if (songs.length > 0) {
         loadSong(songs[0]);
         renderHome();
-        
         const firstPop = songs.find(s => s.isPopular);
         if(firstPop) updateLyricsPanel(firstPop);
         else updateLyricsPanel(songs[0]);
@@ -136,9 +135,19 @@ function renderHome() {
                 `).join('')}
             </div>
              <h2 class="zz-section-title">About</h2>
-            <div class="zz-about-box">
-                <div class="zz-about-img"></div>
-                <div class="zz-about-text">Hi, I'm Zephy. I write songs about code and coffee.</div>
+            
+            <div class="zz-about-box" style="align-items: flex-start;">
+                
+                <img src="https://via.placeholder.com/150" class="zz-about-img" style="object-fit: cover;">
+                
+                <div class="zz-about-text">
+                    <p style="font-weight: 500; font-size: 15px; margin-bottom: 10px;">
+                        Writing the soundtrack for the main character moments you’re too scared to admit you’re having. Welcome to the archives.
+                    </p>
+                    <p style="font-style: italic; color: #666; font-size: 14px;">
+                        "if it doesn't crush us, then we don't want it."
+                    </p>
+                </div>
             </div>
             <br><br>
 
@@ -199,14 +208,16 @@ function renderShowAll() {
     container.innerHTML = htmlContent;
 }
 
-// --- C. RENDER SINGLE ALBUM VIEW (Matches the new style) ---
-// --- C. RENDER ALBUM VIEW (With "Back to Home") ---
 function renderAlbumView(albumName) {
     const container = document.querySelector('.middle-panel');
     
-    // Find info for this album
-    const albumSongs = songs.filter(s => s.album === albumName);
-    const albumInfo = getUniqueReleases().find(r => r.name === albumName); 
+    // 1. Filter songs for this album
+    // 2. SORT them by trackOrder (Low to High)
+    const albumSongs = songs
+        .filter(s => s.album === albumName)
+        .sort((a, b) => a.trackOrder - b.trackOrder); // <--- THE FIX
+    
+    const albumInfo = getUniqueReleases().find(r => r.name === albumName);
 
     container.innerHTML = `
         <div style="padding-bottom: 50px;">
@@ -219,7 +230,6 @@ function renderAlbumView(albumName) {
                     Discography
                 </span>
             </div>
-
             ${generateReleaseHTML(albumInfo)}
         </div>
     `;
@@ -227,9 +237,11 @@ function renderAlbumView(albumName) {
 
 // --- HELPER: Generates the HTML for one Release (Cover + Header + Tracks) ---
 function generateReleaseHTML(release) {
-    // Get songs for this specific release
-    const tracks = songs.filter(s => s.album === release.name);
-    
+    // Filter AND Sort by Track Order
+    const tracks = songs
+        .filter(s => s.album === release.name)
+        .sort((a, b) => a.trackOrder - b.trackOrder); // <--- THE FIX
+
     return `
     <div class="zz-release-container">
         <div class="zz-release-header">
@@ -259,14 +271,29 @@ function generateReleaseHTML(release) {
     `;
 }
 
-// --- HELPER: Play Album Context ---
+// --- HELPER: Play Album Context (Smart Toggle) ---
 function playAlbum(albumName) {
-    // Find first song of this album
-    const firstIndex = songs.findIndex(s => s.album === albumName);
-    if(firstIndex !== -1) {
-        songIndex = firstIndex;
-        loadSong(songs[songIndex]);
-        playSong();
+    // 1. Check if we are ALREADY playing this album
+    const currentSong = songs[songIndex];
+    if (currentSong && currentSong.album === albumName) {
+        if (isPlaying) pauseSong();
+        else playSong();
+        return; // Stop here, don't restart!
+    }
+
+    // 2. If not, find tracks for this album
+    // Sort by trackOrder to ensure we start at Track 1
+    const albumTracks = songs
+        .filter(s => s.album === albumName)
+        .sort((a, b) => (a.trackOrder || 0) - (b.trackOrder || 0));
+
+    // 3. Find the FIRST track that actually has Audio
+    const firstPlayable = albumTracks.find(s => s.src && s.src !== "");
+
+    if(firstPlayable) {
+        playSpecificSong(firstPlayable.title);
+    } else {
+        alert("This album is Lyrics-Only (No audio found).");
     }
 }
 
@@ -356,13 +383,36 @@ function renderPlaylistView(playlistTitle) {
     `;
 }
 
-// --- HELPER: Play Playlist Context ---
+// --- HELPER: Play Playlist Context (Smart Toggle) ---
 function playPlaylist(playlistTitle) {
     const playlist = playlists.find(p => p.title === playlistTitle);
-    if(playlist && playlist.songs.length > 0) {
-        // Play the first song in the playlist
-        const firstSongTitle = playlist.songs[0];
-        playSpecificSong(firstSongTitle);
+    if(!playlist) return;
+
+    // 1. Check if we are ALREADY playing a song from this playlist
+    const currentSong = songs[songIndex];
+    // (Simple check: is the current song title inside this playlist?)
+    if (currentSong && playlist.songs.includes(currentSong.title)) {
+        if (isPlaying) pauseSong();
+        else playSong();
+        return;
+    }
+
+    // 2. Find first playable song in playlist
+    // We have to check the order of titles in the playlist array
+    let firstPlayableTitle = null;
+    
+    for (let title of playlist.songs) {
+        const s = songs.find(song => song.title === title);
+        if (s && s.src && s.src !== "") {
+            firstPlayableTitle = title;
+            break; // Found the first valid one
+        }
+    }
+
+    if (firstPlayableTitle) {
+        playSpecificSong(firstPlayableTitle);
+    } else {
+        alert("This playlist has no playable audio.");
     }
 }
 
@@ -371,8 +421,23 @@ function loadSong(song) {
     playerTitle.innerText = song.title;
     playerArtist.innerText = song.artist;
     playerAlbum.innerText = song.album;
-    audio.src = song.src;
-    albumArt.innerHTML = `<img src="${song.cover}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+    
+    // Update Album Art
+    // FIX: Handle missing cover gracefully
+    const coverUrl = song.cover || "https://via.placeholder.com/150";
+    albumArt.innerHTML = `<img src="${coverUrl}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">`;
+    
+    // FIX: Handle Audio Source
+    if (song.src && song.src !== "") {
+        audio.src = song.src;
+        // Don't auto-play here (play functions handle that)
+        // But we enable buttons
+    } else {
+        audio.src = ""; // Clear source
+        // Show visual indicator
+        playerTitle.innerText += " (Lyrics Only)";
+    }
+
     updateLyricsPanel(song);
 }
 
@@ -381,29 +446,94 @@ function pauseSong() { isPlaying = false; audio.pause(); }
 function toggleShuffle() { playMode = 1; iconShuffle.classList.remove('hidden'); let newIndex = Math.floor(Math.random() * songs.length); songIndex = newIndex; loadSong(songs[songIndex]); playSong(); }
 function playAll() { playMode = 0; songIndex = 0; loadSong(songs[songIndex]); playSong(); }
 
+// --- PLAYER LOGIC (Smart Skip) ---
+
 function nextSong() {
-    if (playMode === 4) { audio.currentTime = 0; playSong(); return; }
-    if (playMode === 1 || playMode === 2) {
-        if (songs.length > 1) {
-            let newIndex;
-            do { newIndex = Math.floor(Math.random() * songs.length); } while (newIndex === songIndex);
-            songIndex = newIndex;
-        } else { songIndex = 0; }
-    } else {
-        songIndex++;
-        if (songIndex > songs.length - 1) { if (playMode === 3) songIndex = 0; else songIndex = 0; }
+    // Strict Repeat One Rule
+    if (playMode === 4) { 
+        if (songs[songIndex].src) { 
+            audio.currentTime = 0; 
+            playSong(); 
+        }
+        return; 
     }
-    loadSong(songs[songIndex]);
-    if (isPlaying) playSong();
+
+    let nextIndex = songIndex;
+    let attempts = 0;
+    let foundPlayable = false;
+
+    // Loop to find next playable track
+    while (attempts < songs.length) {
+        // Calculate next index based on mode
+        if (playMode === 1 || playMode === 2) {
+            // Shuffle
+            let rand;
+            do { rand = Math.floor(Math.random() * songs.length); } 
+            while (rand === nextIndex && songs.length > 1);
+            nextIndex = rand;
+        } else {
+            // Normal Order
+            nextIndex++;
+            if (nextIndex > songs.length - 1) {
+                if (playMode === 3) nextIndex = 0; // Loop All
+                else return; // Stop at end
+            }
+        }
+
+        // CHECK: Does this song have audio?
+        if (songs[nextIndex].src && songs[nextIndex].src !== "") {
+            foundPlayable = true;
+            break; // Found one! Stop looking.
+        }
+        
+        attempts++;
+    }
+
+    if (foundPlayable) {
+        songIndex = nextIndex;
+        loadSong(songs[songIndex]);
+        playSong();
+    } else {
+        // If we looped through everything and found nothing
+        console.log("No playable songs found in queue.");
+        pauseSong();
+    }
 }
 
 function prevSong() {
-    if (playMode === 4) { audio.currentTime = 0; playSong(); return; }
-    if (audio.currentTime > 3) { audio.currentTime = 0; } else {
-        songIndex--;
-        if (songIndex < 0) songIndex = songs.length - 1;
+    // Strict Repeat One
+    if (playMode === 4) { 
+        if (songs[songIndex].src) { audio.currentTime = 0; playSong(); }
+        return; 
+    }
+
+    // Normal Restart Rule
+    if (audio.currentTime > 3) { 
+        audio.currentTime = 0; 
+        return; 
+    } 
+    
+    let prevIndex = songIndex;
+    let attempts = 0;
+    let foundPlayable = false;
+
+    // Loop BACKWARDS to find playable track
+    while (attempts < songs.length) {
+        prevIndex--;
+        if (prevIndex < 0) prevIndex = songs.length - 1;
+
+        // CHECK: Audio exists?
+        if (songs[prevIndex].src && songs[prevIndex].src !== "") {
+            foundPlayable = true;
+            break;
+        }
+        attempts++;
+    }
+
+    if (foundPlayable) {
+        songIndex = prevIndex;
         loadSong(songs[songIndex]);
-        if (isPlaying) playSong();
+        playSong();
     }
 }
 
@@ -441,3 +571,24 @@ progressBarContainer.addEventListener('click', (e) => {
 
 // --- 7. START ---
 fetchSongs();
+
+// --- DARK MODE TOGGLE ---
+const themeBtn = document.getElementById('theme-toggle-btn');
+
+// Check if user already chose dark mode
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+    themeBtn.innerHTML = '<i class="fas fa-sun"></i>'; // Switch icon to Sun
+}
+
+themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    
+    if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('theme', 'dark');
+        themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+    } else {
+        localStorage.setItem('theme', 'light');
+        themeBtn.innerHTML = '<i class="fas fa-moon"></i>';
+    }
+});

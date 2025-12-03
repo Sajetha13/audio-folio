@@ -133,35 +133,119 @@ body {
 .zz-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #000; }
 .zz-card p { font-size: 12px; color: #777; }
 
-/* --- IPOD STYLES --- */
+/* --- IPOD STYLES (SCALED UP VERSION) --- */
 .ipod-case {
-    width: 320px; height: 540px; 
+    width: 370px;   /* Increased from 320px */
+    height: 620px;  /* Increased from 540px */
+    
     background: linear-gradient(135deg, #e0e0e0, #ffffff);
-    border-radius: 35px;
-    box-shadow: inset 0 0 15px rgba(0,0,0,0.1), 25px 25px 50px rgba(0,0,0,0.15), -10px -10px 40px rgba(255,255,255,1);
-    display: flex; flex-direction: column; align-items: center; padding: 28px; position: relative; border: 1px solid #ccc;
+    border-radius: 45px; /* Rounder corners */
+    box-shadow: 
+        inset 0 0 15px rgba(0,0,0,0.1), 
+        30px 30px 60px rgba(0,0,0,0.15), /* Deeper shadow */
+        -10px -10px 40px rgba(255,255,255,1);
+    display: flex; flex-direction: column; align-items: center; 
+    padding: 35px; /* More breathing room */
+    position: relative; border: 1px solid #ccc;
+    transition: background 0.3s;
 }
-.screen-area { width: 100%; height: 220px; background-color: #222; border-radius: 10px; padding: 5px; margin-bottom: 30px; }
-.screen-content { background: linear-gradient(to bottom, #dbe4eb, #bdd4e7); width: 100%; height: 100%; border-radius: 5px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 8px; font-size: 10px; font-weight: 700; color: #444; height: 20px; }
-.top-left { display: flex; gap: 5px; width: 60px; }
-.status-icon { font-size: 9px; color: #333; }
+
+.screen-area {
+    width: 100%; 
+    height: 260px; /* Taller screen (was 220px) */
+    background-color: #222; 
+    border-radius: 12px; 
+    padding: 6px; 
+    margin-bottom: 45px; /* More gap before wheel */
+}
+
+.screen-content {
+    background: linear-gradient(to bottom, #dbe4eb, #bdd4e7);
+    width: 100%; height: 100%; border-radius: 6px;
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+    color: #333;
+}
+
+.top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 10px; 
+    font-size: 11px; /* Slightly readable text */
+    font-weight: 700; color: #444; height: 26px;
+    background: linear-gradient(to bottom, #f0f0f0, #ccc);
+    border-bottom: 1px solid #999;
+}
+
+.top-left { display: flex; gap: 6px; width: 70px; }
+.top-right-group { display: flex; gap: 6px; align-items: center; }
+.status-icon { font-size: 10px; color: #333; }
 .status-icon.hidden { display: none; }
-.now-playing-view { flex-grow: 1; display: flex; padding: 15px; gap: 12px; align-items: center; }
-.album-art-placeholder { width: 90px; height: 90px; background: #444; display: flex; justify-content: center; align-items: center; color: #fff; font-size: 28px; box-shadow: 3px 3px 6px rgba(0,0,0,0.3); border-radius: 4px; }
-.track-info h3 { font-size: 15px; margin-bottom: 4px; color: #000; }
-.track-info p { font-size: 11px; color: #555; font-weight: 500;}
-.scrubber { padding: 8px 12px; display: flex; align-items: center; gap: 8px; font-size: 9px; font-weight: 700; color: #444; }
-.progress-bar { flex-grow: 1; height: 8px; background: #fff; border: 1px solid #999; position: relative; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2); }
+
+.now-playing-view {
+    flex-grow: 1; display: flex; 
+    padding: 20px; /* More inner spacing */
+    gap: 18px; 
+    align-items: center;
+}
+
+/* Bigger Album Art on Screen */
+.album-art-placeholder {
+    width: 110px; /* Was 90px */
+    height: 110px; 
+    background: #444;
+    display: flex; justify-content: center; align-items: center;
+    color: #fff; font-size: 32px;
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.3);
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+.album-art-placeholder img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
+
+/* Bigger Text */
+.track-info h3 { font-size: 18px; margin-bottom: 5px; color: #000; font-weight: 800; line-height: 1.2; }
+.track-info p { font-size: 13px; color: #555; font-weight: 600; margin-bottom: 2px; }
+
+.scrubber {
+    padding: 10px 15px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 10px; font-weight: 700; color: #444;
+}
+.progress-bar {
+    flex-grow: 1; height: 8px; background: #fff; border: 1px solid #999;
+    position: relative; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2); cursor: pointer;
+}
 .fill { width: 0%; height: 100%; background: #5e97d1; }
-.click-wheel { width: 210px; height: 210px; background-color: var(--ipod-wheel); border-radius: 50%; position: relative; box-shadow: 0 8px 20px rgba(0,0,0,0.15); cursor: pointer; }
-.wheel-btn { position: absolute; color: var(--wheel-text); font-size: 16px; font-weight: 700; user-select: none; transition: color 0.2s; }
+
+/* Bigger Click Wheel */
+.click-wheel {
+    width: 250px; /* Was 210px */
+    height: 250px;
+    background-color: var(--ipod-wheel);
+    border-radius: 50%; position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.wheel-btn {
+    position: absolute; color: var(--wheel-text);
+    font-size: 18px; /* Bigger Labels */
+    font-weight: 700; user-select: none; transition: color 0.2s;
+}
 .click-wheel:active .wheel-btn { color: #555; }
-.menu-btn { top: 18px; left: 50%; transform: translateX(-50%); }
-.next-btn { right: 18px; top: 50%; transform: translateY(-50%); }
-.prev-btn { left: 18px; top: 50%; transform: translateY(-50%); }
-.play-btn { bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;}
-.center-button { width: 75px; height: 75px; background: linear-gradient(145deg, #f0f0f0, #e6e6e6); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: inset 0 2px 5px rgba(255,255,255,1), 0 5px 10px rgba(0,0,0,0.1); }
+
+/* Adjust button positions for larger wheel */
+.menu-btn { top: 22px; left: 50%; transform: translateX(-50%); }
+.next-btn { right: 22px; top: 50%; transform: translateY(-50%); }
+.prev-btn { left: 22px; top: 50%; transform: translateY(-50%); }
+.play-btn { bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;}
+
+.center-button {
+    width: 90px; /* Was 75px */
+    height: 90px;
+    background: linear-gradient(145deg, #f0f0f0, #e6e6e6);
+    border-radius: 50%; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: inset 0 2px 5px rgba(255,255,255,1), 0 5px 15px rgba(0,0,0,0.1);
+}
 .center-button:active { background: #dcdcdc; transform: translate(-50%, -50%) scale(0.96); }
 /* Scrollbars */
 ::-webkit-scrollbar { width: 6px; }
@@ -432,4 +516,186 @@ body {
 
     .zz-grid { grid-template-columns: repeat(2, 1fr); }
     .zz-title { font-size: 28px; }
+}
+
+/* =====================================================
+   SAFE DARK MODE OVERRIDES 
+   ===================================================== */
+
+/* 1. The Dark Theme Colors */
+body.dark-mode {
+    --bg-color: #000000;       /* Deep Black Background */
+    --text-main: #ffffff;      /* White Text */
+    --ipod-body: #1c1c1c;      /* Metallic Black iPod */
+    --ipod-wheel: #111111;     /* Dark Wheel */
+    --wheel-text: #666;
+}
+
+/* 2. Override Panel Backgrounds */
+body.dark-mode .left-panel {
+    background-color: #000000;
+    border-right: 1px solid #333;
+}
+
+body.dark-mode .middle-panel {
+    background-color: #121212; /* Spotify-like Dark Grey */
+    color: #fff;
+}
+
+body.dark-mode .lyrics-panel {
+    background-color: #000000;
+    border-left: 1px solid #333;
+    color: #ccc;
+}
+
+/* 3. Fix Text Colors in Dark Mode */
+body.dark-mode .zz-title,
+body.dark-mode .group-title, 
+body.dark-mode .release-title,
+body.dark-mode #lyrics-song-title {
+    color: #ffffff;
+}
+
+body.dark-mode .zz-subtitle,
+body.dark-mode .group-year,
+body.dark-mode .track-idx,
+body.dark-mode .track-time {
+    color: #888;
+}
+
+body.dark-mode .zz-track-row:hover {
+    background-color: #222; /* Dark hover effect */
+}
+
+body.dark-mode .zz-list-header,
+body.dark-mode .zz-track-list,
+body.dark-mode .zz-track-row {
+    border-color: #333;
+}
+
+/* 4. The Black iPod Style */
+body.dark-mode .ipod-case {
+    background: linear-gradient(135deg, #2b2b2b, #000000); /* Metallic Black */
+    border: 1px solid #333;
+    box-shadow: 
+        inset 0 0 10px rgba(255,255,255,0.1),
+        20px 20px 50px rgba(0,0,0,0.5);
+}
+
+body.dark-mode .screen-area {
+    background-color: #000; /* Black Bezel */
+}
+
+body.dark-mode .click-wheel {
+    background-color: #111;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+body.dark-mode .center-button {
+    background: linear-gradient(145deg, #222, #000);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.1);
+}
+
+/* 5. Invert the Play Button for visibility */
+body.dark-mode .play-btn-black {
+    background-color: #fff;
+    color: #000;
+}
+
+/* =====================================================
+   DARK MODE SPECIFIC FIXES (Only applied when Dark Mode is ON)
+   ===================================================== */
+
+/* --- A. TEXT COLORS (Pure White in Dark Mode) --- */
+body.dark-mode .lyrics-text,
+body.dark-mode .zz-section-title,
+body.dark-mode .zz-title,
+body.dark-mode .zz-subtitle,
+body.dark-mode .zz-artist,
+body.dark-mode .release-title,
+body.dark-mode .group-title,
+body.dark-mode .lyrics-heading,
+body.dark-mode #lyrics-song-title,
+body.dark-mode .zz-about-text {
+    color: #ffffff !important;
+}
+
+/* --- B. HOVER EFFECTS (Fixing "White on White") --- */
+/* When hovering a row in dark mode, use Dark Grey BG */
+body.dark-mode .zz-row:hover,
+body.dark-mode .zz-track-row:hover {
+    background-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+/* Force inner text to stay white on hover */
+body.dark-mode .zz-row:hover .zz-row-left span,
+body.dark-mode .zz-row:hover .t-dur,
+body.dark-mode .zz-track-row:hover .track-idx,
+body.dark-mode .zz-track-row:hover .track-name,
+body.dark-mode .zz-track-row:hover .track-time {
+    color: #ffffff !important;
+}
+
+/* --- C. LIST VISIBILITY (Brightening the Dull Grey) --- */
+/* Song Titles */
+body.dark-mode .track-name,
+body.dark-mode .zz-row-left span {
+    color: #eeeeee !important; /* Bright White-Grey */
+    font-weight: 500;
+}
+
+/* Metadata (Numbers & Time) */
+body.dark-mode .track-idx,
+body.dark-mode .track-time,
+body.dark-mode .t-dur,
+body.dark-mode .row-num {
+    color: #cccccc !important; /* Lighter Grey */
+}
+
+/* --- D. IPOD BACKGROUND (Lighter "Gunmetal" Black) --- */
+body.dark-mode .ipod-case {
+    /* Lighter gradient: Charcoal to Deep Black */
+    background: linear-gradient(135deg, #333333, #1a1a1a) !important;
+    border: 1px solid #444 !important;
+    /* Slightly stronger shadow to make it pop */
+    box-shadow: 
+        inset 0 0 10px rgba(255,255,255,0.1),
+        20px 20px 50px rgba(0,0,0,0.6) !important;
+}
+
+
+/* 1. Fix "Back to Home" Hover Logic */
+/* In Dark Mode: Hovering should turn text WHITE, not Black */
+body.dark-mode .back-link:hover {
+    color: #ffffff !important; 
+    text-decoration: underline;
+}
+
+/* 2. Fix Album & Playlist Titles */
+/* In Dark Mode: The big titles inside the list view need to be White */
+body.dark-mode .group-title {
+    color: #ffffff !important;
+}
+
+/* 3. Fix "No albums yet" text visibility */
+body.dark-mode p {
+    color: #b3b3b3; /* Light Grey instead of default dark */
+}
+
+/* --- CRITICAL DARK MODE FIXES --- */
+
+/* Force Album/Playlist Titles to White */
+body.dark-mode .zz-card h4 {
+    color: #ffffff !important;
+}
+
+/* Force Artist Name/Description to Light Grey */
+body.dark-mode .zz-card p {
+    color: #b3b3b3 !important;
+}
+
+/* Fix the "Show All" link to be visible */
+body.dark-mode .show-all-link {
+    color: #ffffff !important;
 }

@@ -14,34 +14,34 @@
             background: #f5f5f7; 
             display: flex; 
             gap: 20px; 
-            height: 100vh; /* Fill Screen Height */
-            width: 100vw;  /* Fill Screen Width */
+            height: 100vh; 
+            width: 100vw;  
             box-sizing: border-box;
-            overflow: hidden; /* Stop whole page scrolling */
+            overflow: hidden; 
         }
         
-        /* SIDEBAR (Fixed Width) */
+        /* SIDEBAR */
         .sidebar { 
-            flex: 0 0 350px; /* Fixed width of 350px */
+            flex: 0 0 350px; 
             background: white; 
             padding: 20px; 
             border-radius: 12px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-            overflow-y: auto; /* Scroll internally */
+            overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
             height: 100%;
         }
         
-        /* MAIN AREA (Fills remaining space) */
+        /* MAIN AREA */
         .main-area { 
-            flex: 1; /* Take all remaining width */
+            flex: 1; 
             display: flex; 
             flex-direction: column; 
             gap: 20px; 
-            overflow-y: auto; /* Scroll internally */
+            overflow-y: auto; 
             height: 100%;
-            padding-right: 5px; /* Tiny buffer for scrollbar */
+            padding-right: 5px; 
         }
 
         .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -71,28 +71,22 @@
         .btn-group { display: flex; gap: 8px; }
         .edit-btn { background: #007aff; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
         .delete-btn { background: #ff4d4d; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-        .delete-btn:hover { background: #cc0000; }
-
-        /* CHECKBOX FIX */
-        .checkbox-list { max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa; }
-        .checkbox-item { display: flex; align-items: center; justify-content: flex-start; gap: 15px; padding: 10px; border-bottom: 1px solid #eee; }
-        .checkbox-item:last-child { border-bottom: none; }
-        .checkbox-item input { width: 20px; height: 20px; margin: 0; cursor: pointer; }
-        .checkbox-item label { margin: 0; font-weight: 500; cursor: pointer; width: 100%; font-size: 15px; }
+        
+        /* ARRANGER STYLES */
+        .order-item { display: flex; align-items: center; padding: 10px; background: #fafafa; border: 1px solid #eee; margin-bottom: 8px; border-radius: 6px; }
+        .order-controls { display: flex; gap: 5px; margin-right: 15px; }
+        .order-btn { background: #ddd; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .order-btn:hover { background: #ccc; }
 
         .hidden { display: none; }
         .status { margin-top: 15px; font-weight: bold; text-align: center; font-size: 14px; }
         .success { color: green; }
         .error { color: red; }
         
-        /* LOGIN SCREEN (Centered) */
         #login-container { max-width: 400px; margin: 10vh auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); text-align: center; height: fit-content; }
         #dashboard-container { display: none; gap: 30px; height: 100%; width: 100%; }
-        
-        /* SCROLLBARS */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #999; }
     </style>
 </head>
 <body>
@@ -119,7 +113,7 @@
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('song')">Song Manager</button>
                 <button class="tab-btn" onclick="switchTab('playlist')">Playlist Manager</button>
-            </div>
+                <button class="tab-btn" onclick="switchTab('order')">Album Order</button> </div>
 
             <div id="song-form" class="card">
                 <h1 id="song-form-title">Upload Song 🎵</h1>
@@ -149,6 +143,24 @@
                 <button class="cancel-btn" id="btn-cancel-playlist">CANCEL EDIT</button>
                 <p id="status-playlist" class="status"></p>
             </div>
+
+            <div id="order-form" class="card hidden">
+                <h1>Rearrange Album</h1>
+                <div class="form-group">
+                    <label>Select Album to Rearrange:</label>
+                    <select id="order-album-select" onchange="loadAlbumSongsForOrder()">
+                        <option value="">-- Select Album --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Drag or Use Arrows to Reorder:</label>
+                    <div id="order-list" class="checkbox-list" style="min-height: 200px;">
+                        <p style="color:#999; text-align:center; padding:20px;">Select an album first</p>
+                    </div>
+                </div>
+                <button class="action-btn" id="btn-save-order" style="background:#007aff;">SAVE NEW ORDER</button>
+                <p id="status-order" class="status"></p>
+            </div>
         </div>
     </div>
 
@@ -160,10 +172,14 @@
 
         let allSongs = [];
         let allPlaylists = [];
+        
         let isEditingSong = false;
         let currentSongData = null;
         let isEditingPlaylist = false;
         let currentPlaylistData = null;
+        
+        // For Ordering
+        let currentOrderList = [];
 
         checkSession();
 
@@ -197,26 +213,38 @@
         window.switchTab = (tab) => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
+            
+            document.getElementById('song-form').classList.add('hidden');
+            document.getElementById('playlist-form').classList.add('hidden');
+            document.getElementById('order-form').classList.add('hidden');
+
             if(tab === 'song') {
                 document.getElementById('song-form').classList.remove('hidden');
-                document.getElementById('playlist-form').classList.add('hidden');
                 renderSidebar('song'); 
-            } else {
-                document.getElementById('song-form').classList.add('hidden');
+            } else if (tab === 'playlist') {
                 document.getElementById('playlist-form').classList.remove('hidden');
                 renderSidebar('playlist'); 
                 populatePlaylistSelector();
+            } else if (tab === 'order') {
+                document.getElementById('order-form').classList.remove('hidden');
+                populateAlbumDropdown();
+                renderSidebar('song'); // Keep songs in sidebar
             }
         }
 
         async function refreshAllData() {
             document.getElementById('loading-list').style.display = 'block';
-            const { data: songs } = await db.from('songs').select('*').order('year', { ascending: false });
+            
+            // Sort by track_order if exists, else year
+            const { data: songs } = await db.from('songs').select('*').order('track_order', { ascending: true });
             if(songs) allSongs = songs;
+
             const { data: playlists } = await db.from('playlists').select('*');
             if(playlists) allPlaylists = playlists;
             
-            const activeTab = document.querySelector('.tab-btn.active').innerText.includes('Song') ? 'song' : 'playlist';
+            const activeTab = document.querySelector('.tab-btn.active').innerText.includes('Song') ? 'song' : 
+                              document.querySelector('.tab-btn.active').innerText.includes('Playlist') ? 'playlist' : 'song';
+            
             renderSidebar(activeTab);
             if(activeTab === 'playlist') populatePlaylistSelector();
             document.getElementById('loading-list').style.display = 'none';
@@ -227,8 +255,11 @@
             const title = document.getElementById('sidebar-title');
             
             if (type === 'song') {
-                title.innerText = "All Songs 🎵";
-                container.innerHTML = allSongs.map(s => `
+                title.innerText = "All Songs";
+                // Sort by Year for the Admin List View (easier to find recent uploads)
+                const sortedForView = [...allSongs].sort((a,b) => b.year - a.year);
+                
+                container.innerHTML = sortedForView.map(s => `
                     <div class="list-item">
                         <div><div class="item-info">${s.title}</div><span class="item-sub">${s.year} • ${s.album}</span></div>
                         <div class="btn-group">
@@ -238,7 +269,7 @@
                     </div>
                 `).join('');
             } else {
-                title.innerText = "All Playlists 📜";
+                title.innerText = "All Playlists";
                 container.innerHTML = allPlaylists.map(p => `
                     <div class="list-item">
                         <div><div class="item-info">${p.title}</div><span class="item-sub">${p.songs ? p.songs.length : 0} Songs</span></div>
@@ -262,6 +293,75 @@
             }
         }
 
+        // --- ARRANGER LOGIC ---
+        function populateAlbumDropdown() {
+            const select = document.getElementById('order-album-select');
+            const albums = [...new Set(allSongs.map(s => s.album))];
+            select.innerHTML = '<option value="">-- Select Album --</option>' + 
+                albums.map(a => `<option value="${a}">${a}</option>`).join('');
+        }
+
+        window.loadAlbumSongsForOrder = () => {
+            const albumName = document.getElementById('order-album-select').value;
+            const container = document.getElementById('order-list');
+            if(!albumName) { container.innerHTML = '<p style="color:#999; padding:20px;">Select an album</p>'; return; }
+
+            // Filter and Sort by existing track_order
+            currentOrderList = allSongs.filter(s => s.album === albumName).sort((a,b) => (a.track_order || 999) - (b.track_order || 999));
+            
+            renderOrderList();
+        }
+
+        function renderOrderList() {
+            const container = document.getElementById('order-list');
+            container.innerHTML = currentOrderList.map((s, i) => `
+                <div class="order-item">
+                    <div class="order-controls">
+                        <button class="order-btn" onclick="moveSong(${i}, -1)">▲</button>
+                        <button class="order-btn" onclick="moveSong(${i}, 1)">▼</button>
+                    </div>
+                    <div>
+                        <div style="font-weight:bold;">${i + 1}. ${s.title}</div>
+                        <div style="font-size:12px; color:#888;">Current Order: ${s.track_order || '-'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.moveSong = (index, direction) => {
+            if (direction === -1 && index === 0) return; // Top
+            if (direction === 1 && index === currentOrderList.length - 1) return; // Bottom
+            
+            // Swap
+            const temp = currentOrderList[index];
+            currentOrderList[index] = currentOrderList[index + direction];
+            currentOrderList[index + direction] = temp;
+            
+            renderOrderList();
+        }
+
+        document.getElementById('btn-save-order').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-save-order');
+            const status = document.getElementById('status-order');
+            btn.disabled = true; status.innerText = "Saving Order...";
+            
+            try {
+                // Loop through and update each song with its new index (1, 2, 3...)
+                for (let i = 0; i < currentOrderList.length; i++) {
+                    const song = currentOrderList[i];
+                    // We use title to identify, make sure titles are unique per album!
+                    await db.from('songs').update({ track_order: i + 1 }).eq('title', song.title);
+                }
+                
+                status.innerText = "✅ Order Saved!"; status.className = "status success";
+                refreshAllData(); // Reload main data to reflect changes
+            } catch (err) {
+                status.innerText = "❌ Error: " + err.message; status.className = "status error";
+            }
+            btn.disabled = false;
+        });
+
+        // --- STANDARD EDIT/UPLOAD LOGIC (Same as before) ---
         function populatePlaylistSelector() {
             const container = document.getElementById('playlist-song-selector');
             container.innerHTML = allSongs.map(s => `
@@ -272,9 +372,9 @@
             `).join('');
         }
 
-        // EDIT LOGIC
         window.startEditSong = function(song) {
             isEditingSong = true; currentSongData = song;
+            switchTab('song'); document.querySelector('.tab-btn').click();
             document.getElementById('song-form-title').innerText = "Edit Song ✏️";
             const btn = document.getElementById('btn-upload-song');
             btn.innerText = "UPDATE SONG"; btn.classList.add('update-mode');
@@ -308,11 +408,9 @@
             const btn = document.getElementById('btn-create-playlist');
             btn.innerText = "UPDATE PLAYLIST"; btn.classList.add('update-mode');
             document.getElementById('btn-cancel-playlist').style.display = 'block';
-            
             document.getElementById('p-title').value = playlist.title;
             document.getElementById('p-desc').value = playlist.description;
             if(playlist.cover_url) document.getElementById('p-current-cover').style.display = 'block';
-            
             const currentSongs = playlist.songs || [];
             document.querySelectorAll('.song-checkbox').forEach(cb => { cb.checked = currentSongs.includes(cb.value); });
         };
@@ -328,7 +426,6 @@
             document.getElementById('p-title').value = "";
         });
 
-        // ACTIONS
         document.getElementById('btn-upload-song').addEventListener('click', async () => {
             const status = document.getElementById('status-song');
             const btn = document.getElementById('btn-upload-song');
@@ -337,7 +434,7 @@
             const audioFile = document.getElementById('s-audio').files[0];
 
             if(!title) { alert("Title required!"); return; }
-            if(!isEditingSong && !audioFile) { alert("Audio required!"); return; }
+            // Audio check removed for Lyrics-only mode as requested previously
 
             btn.disabled = true; status.innerText = isEditingSong ? "Updating..." : "Uploading..."; status.className = "status";
 
@@ -387,7 +484,8 @@
         });
 
         document.getElementById('btn-create-playlist').addEventListener('click', async () => {
-            const status = document.getElementById('status-playlist');
+            // Playlist logic same as before...
+             const status = document.getElementById('status-playlist');
             const btn = document.getElementById('btn-create-playlist');
             const title = document.getElementById('p-title').value;
             const coverFile = document.getElementById('p-cover').files[0];
@@ -416,11 +514,11 @@
                 if(isEditingPlaylist) {
                     const { error } = await db.from('playlists').update(playlistData).eq('title', currentPlaylistData.title);
                     if(error) throw error;
-                    status.innerText = "✅ Playlist Updated!";
+                    status.innerText = "✅ Updated!";
                 } else {
                     const { error } = await db.from('playlists').insert([playlistData]);
                     if(error) throw error;
-                    status.innerText = "✅ Playlist Created!";
+                    status.innerText = "✅ Created!";
                 }
                 status.className = "status success"; btn.disabled = false;
                 document.getElementById('btn-cancel-playlist').click(); refreshAllData();
