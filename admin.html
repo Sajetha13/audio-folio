@@ -87,6 +87,24 @@
         #dashboard-container { display: none; gap: 30px; height: 100%; width: 100%; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        /* --- DRAG AND DROP STYLES --- */
+        .order-item { 
+            cursor: grab; 
+            transition: all 0.2s; 
+            border: 1px solid #eee;
+            background: #fff;
+        }
+        .order-item:active { cursor: grabbing; }
+        .order-item.dragging { opacity: 0.5; background: #fafafa; border: 2px dashed #ccc; }
+        .order-item.drag-over { border-top: 2px solid #007aff; background: #f0f7ff; }
+
+        .drag-handle {
+            margin-right: 15px; 
+            color: #ccc; 
+            cursor: grab; 
+            font-size: 20px;
+            padding: 0 10px;
+        }
     </style>
 </head>
 <body>
@@ -123,7 +141,6 @@
                 <div class="form-group"><label>Type</label><select id="s-type"><option>Single</option><option>EP</option><option>Album</option></select></div>
                 <div class="form-group"><label>Year</label><input type="text" id="s-year" value="2025"></div>
                 <div class="form-group"><label>Duration</label><input type="text" id="s-duration" placeholder="0:00" style="background:#f0f0f0;"></div>
-                <div class="form-group" style="display:flex; gap:10px; align-items:center;"><input type="checkbox" id="s-popular" style="width:auto;"> <label style="margin:0;">Popular (Add to Favorites)</label></div>
                 <div class="form-group"><label>Description</label><input type="text" id="s-desc" placeholder="For lyrics page..."></div>
                 <div class="form-group"><label>Lyrics</label><textarea id="s-lyrics" rows="6"></textarea></div>
                 <div class="form-group"><label>Cover Art</label><input type="file" id="s-cover" accept="image/*"><p id="s-current-cover" style="font-size:13px; color:#007aff; font-weight:bold; display:none; margin-top:5px;">✅ Current file exists</p></div>
@@ -145,15 +162,27 @@
             </div>
 
             <div id="order-form" class="card hidden">
-                <h1>Rearrange Album</h1>
+                <h1>Manage Album</h1>
+                
                 <div class="form-group">
-                    <label>Select Album to Rearrange:</label>
+                    <label>Select Album:</label>
                     <select id="order-album-select" onchange="loadAlbumSongsForOrder()">
                         <option value="">-- Select Album --</option>
                     </select>
                 </div>
+
+                <div id="batch-cover-box" style="background:#f0f7ff; padding:15px; border-radius:8px; border:1px solid #cce4ff; margin-bottom:20px; display:none;">
+                    <h3 style="margin-top:0; font-size:16px; color:#007aff;">Change Album Art 🖼️</h3>
+                    <p style="font-size:13px; color:#666; margin-bottom:10px;">This will update the cover for <b>ALL</b> songs in this album.</p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="file" id="batch-cover-file" accept="image/*">
+                        <button id="btn-batch-update" style="background:#007aff; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">UPDATE ART</button>
+                    </div>
+                    <p id="status-batch" class="status" style="text-align:left; margin-bottom:0;"></p>
+                </div>
+
                 <div class="form-group">
-                    <label>Drag or Use Arrows to Reorder:</label>
+                    <label>Drag to Reorder:</label>
                     <div id="order-list" class="checkbox-list" style="min-height: 200px;">
                         <p style="color:#999; text-align:center; padding:20px;">Select an album first</p>
                     </div>
@@ -255,13 +284,20 @@
             const title = document.getElementById('sidebar-title');
             
             if (type === 'song') {
-                title.innerText = "All Songs";
-                // Sort by Year for the Admin List View (easier to find recent uploads)
-                const sortedForView = [...allSongs].sort((a,b) => b.year - a.year);
+                title.innerText = `Ranked Songs (${allSongs.length})`;
                 
-                container.innerHTML = sortedForView.map(s => `
+                // SORT BY POPULAR ORDER (1, 2, 3...)
+                const sortedByRank = [...allSongs].sort((a,b) => (a.popular_order || 999) - (b.popular_order || 999));
+                
+                container.innerHTML = sortedByRank.map(s => `
                     <div class="list-item">
-                        <div><div class="item-info">${s.title}</div><span class="item-sub">${s.year} • ${s.album}</span></div>
+                        <div>
+                            <div class="item-info">
+                                <span style="color:#007aff; font-weight:bold; margin-right:8px;">#${s.popular_order || '-'}</span> 
+                                ${s.title}
+                            </div>
+                            <span class="item-sub">${s.year} • ${s.album}</span>
+                        </div>
                         <div class="btn-group">
                             <button class="edit-btn" onclick='startEditSong(${JSON.stringify(s).replace(/'/g, "&apos;")})'>Edit</button>
                             <button class="delete-btn" onclick='deleteItem("songs", "${s.title}")'>Del</button>
@@ -269,7 +305,8 @@
                     </div>
                 `).join('');
             } else {
-                title.innerText = "All Playlists";
+                // Playlists (Same as before)
+                title.innerText = `All Playlists (${allPlaylists.length})`;
                 container.innerHTML = allPlaylists.map(p => `
                     <div class="list-item">
                         <div><div class="item-info">${p.title}</div><span class="item-sub">${p.songs ? p.songs.length : 0} Songs</span></div>
@@ -280,6 +317,18 @@
                     </div>
                 `).join('');
             }
+        }
+
+        function populateAlbumDropdown() {
+            const select = document.getElementById('order-album-select');
+            const albums = [...new Set(allSongs.map(s => s.album))];
+            
+            // NEW CODE: Adds the Global option
+            select.innerHTML = `
+                <option value="">-- Select Mode --</option>
+                <option value="ALL_POPULAR" style="font-weight:bold; color:#007aff;">★ Global Popularity Ranking (All Songs)</option>
+                <option disabled>──────────</option>
+                ` + albums.map(a => `<option value="${a}">Album: ${a}</option>`).join('');
         }
 
         window.deleteItem = async (table, title) => {
@@ -293,75 +342,151 @@
             }
         }
 
-        // --- ARRANGER LOGIC ---
-        function populateAlbumDropdown() {
-            const select = document.getElementById('order-album-select');
-            const albums = [...new Set(allSongs.map(s => s.album))];
-            select.innerHTML = '<option value="">-- Select Album --</option>' + 
-                albums.map(a => `<option value="${a}">${a}</option>`).join('');
-        }
-
+        // --- ARRANGER LOGIC WITH BATCH SUPPORT ---
         window.loadAlbumSongsForOrder = () => {
-            const albumName = document.getElementById('order-album-select').value;
+            const selection = document.getElementById('order-album-select').value;
             const container = document.getElementById('order-list');
-            if(!albumName) { container.innerHTML = '<p style="color:#999; padding:20px;">Select an album</p>'; return; }
+            const batchBox = document.getElementById('batch-cover-box');
+            
+            if(!selection) { 
+                container.innerHTML = '<p style="color:#999; padding:20px;">Select an option</p>'; 
+                batchBox.style.display = 'none';
+                return; 
+            }
 
-            // Filter and Sort by existing track_order
-            currentOrderList = allSongs.filter(s => s.album === albumName).sort((a,b) => (a.track_order || 999) - (b.track_order || 999));
+            if (selection === "ALL_POPULAR") {
+                // Load ALL songs, sorted by current Popular Order
+                currentOrderList = [...allSongs].sort((a,b) => (a.popular_order || 999) - (b.popular_order || 999));
+                batchBox.style.display = 'none'; // Can't batch update "All Songs" cover
+            } else {
+                // Load specific Album
+                currentOrderList = allSongs.filter(s => s.album === selection)
+                                           .sort((a,b) => (a.track_order || 999) - (b.track_order || 999));
+                batchBox.style.display = 'block'; // Show Batch Updater
+            }
             
             renderOrderList();
         }
+
+        // --- NEW DRAG AND DROP ARRANGER ---
+        let dragStartIndex;
 
         function renderOrderList() {
             const container = document.getElementById('order-list');
             container.innerHTML = currentOrderList.map((s, i) => `
-                <div class="order-item">
-                    <div class="order-controls">
-                        <button class="order-btn" onclick="moveSong(${i}, -1)">▲</button>
-                        <button class="order-btn" onclick="moveSong(${i}, 1)">▼</button>
-                    </div>
-                    <div>
+                <div class="order-item" draggable="true" data-index="${i}">
+                    <div class="drag-handle">☰</div>
+                    <div style="flex-grow:1;">
                         <div style="font-weight:bold;">${i + 1}. ${s.title}</div>
-                        <div style="font-size:12px; color:#888;">Current Order: ${s.track_order || '-'}</div>
+                        <div style="font-size:12px; color:#888;">Original Order: ${s.track_order || '-'}</div>
                     </div>
                 </div>
             `).join('');
+
+            addDragEvents();
         }
 
-        window.moveSong = (index, direction) => {
-            if (direction === -1 && index === 0) return; // Top
-            if (direction === 1 && index === currentOrderList.length - 1) return; // Bottom
-            
-            // Swap
-            const temp = currentOrderList[index];
-            currentOrderList[index] = currentOrderList[index + direction];
-            currentOrderList[index + direction] = temp;
-            
-            renderOrderList();
+        function addDragEvents() {
+            const draggables = document.querySelectorAll('.order-item');
+            draggables.forEach(draggable => {
+                draggable.addEventListener('dragstart', dragStart);
+                draggable.addEventListener('dragover', dragOver);
+                draggable.addEventListener('drop', dragDrop);
+                draggable.addEventListener('dragenter', dragEnter);
+                draggable.addEventListener('dragleave', dragLeave);
+            });
+        }
+
+        function dragStart(e) {
+            dragStartIndex = +this.closest('.order-item').getAttribute('data-index');
+            this.classList.add('dragging');
+        }
+        function dragOver(e) { e.preventDefault(); }
+        function dragEnter(e) { e.preventDefault(); this.classList.add('drag-over'); }
+        function dragLeave() { this.classList.remove('drag-over'); }
+        function dragDrop() {
+            const dragEndIndex = +this.getAttribute('data-index');
+            swapItems(dragStartIndex, dragEndIndex);
+            this.classList.remove('drag-over');
+            this.classList.remove('dragging');
+        }
+
+        function swapItems(fromIndex, toIndex) {
+            const itemToMove = currentOrderList[fromIndex];
+            currentOrderList.splice(fromIndex, 1);
+            currentOrderList.splice(toIndex, 0, itemToMove);
+            renderOrderList(); 
         }
 
         document.getElementById('btn-save-order').addEventListener('click', async () => {
             const btn = document.getElementById('btn-save-order');
             const status = document.getElementById('status-order');
+            const selection = document.getElementById('order-album-select').value;
+            
             btn.disabled = true; status.innerText = "Saving Order...";
             
             try {
-                // Loop through and update each song with its new index (1, 2, 3...)
                 for (let i = 0; i < currentOrderList.length; i++) {
                     const song = currentOrderList[i];
-                    // We use title to identify, make sure titles are unique per album!
-                    await db.from('songs').update({ track_order: i + 1 }).eq('title', song.title);
+                    if (selection === "ALL_POPULAR") {
+                        await db.from('songs').update({ popular_order: i + 1 }).eq('title', song.title);
+                    } else {
+                        await db.from('songs').update({ track_order: i + 1 }).eq('title', song.title);
+                    }
                 }
-                
                 status.innerText = "✅ Order Saved!"; status.className = "status success";
-                refreshAllData(); // Reload main data to reflect changes
+                refreshAllData(); 
             } catch (err) {
                 status.innerText = "❌ Error: " + err.message; status.className = "status error";
             }
             btn.disabled = false;
         });
 
-        // --- STANDARD EDIT/UPLOAD LOGIC (Same as before) ---
+        // --- NEW: BATCH ALBUM ART UPDATER ---
+        document.getElementById('btn-batch-update').addEventListener('click', async () => {
+            const albumName = document.getElementById('order-album-select').value;
+            const file = document.getElementById('batch-cover-file').files[0];
+            const status = document.getElementById('status-batch');
+            const btn = document.getElementById('btn-batch-update');
+
+            if (!albumName || albumName === "ALL_POPULAR") return;
+            if (!file) { alert("Please select an image first!"); return; }
+
+            if(!confirm(`Are you sure you want to change the cover for ALL songs in "${albumName}"?`)) return;
+
+            btn.disabled = true; 
+            status.innerText = "Uploading..."; status.className = "status";
+
+            try {
+                // 1. Upload the new image
+                const fileName = `covers/batch-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                const { error: uploadError } = await db.storage.from('audio_assets').upload(fileName, file);
+                if (uploadError) throw uploadError;
+
+                const { data } = db.storage.from('audio_assets').getPublicUrl(fileName);
+                const publicUrl = data.publicUrl;
+
+                // 2. Update Database (Update matching Album Name)
+                const { error: dbError } = await db.from('songs')
+                    .update({ cover_url: publicUrl })
+                    .eq('album', albumName);
+
+                if (dbError) throw dbError;
+
+                status.innerText = "✅ Album Art Updated!"; status.className = "status success";
+                
+                // Clear input and refresh
+                document.getElementById('batch-cover-file').value = "";
+                refreshAllData();
+
+            } catch (err) {
+                status.innerText = "❌ Error: " + err.message; 
+                status.className = "status error";
+            }
+            btn.disabled = false;
+        });
+
+        // --- STANDARD EDIT/UPLOAD LOGIC ---
         function populatePlaylistSelector() {
             const container = document.getElementById('playlist-song-selector');
             container.innerHTML = allSongs.map(s => `
@@ -388,7 +513,6 @@
             document.getElementById('s-duration').value = song.duration;
             document.getElementById('s-desc').value = song.description || "";
             document.getElementById('s-lyrics').value = song.lyrics || "";
-            document.getElementById('s-popular').checked = song.is_popular;
             if(song.cover_url) document.getElementById('s-current-cover').style.display = 'block';
         };
 
@@ -426,28 +550,38 @@
             document.getElementById('p-title').value = "";
         });
 
+        // --- UPLOAD LOGIC WITH LAZY COVER ---
         document.getElementById('btn-upload-song').addEventListener('click', async () => {
             const status = document.getElementById('status-song');
             const btn = document.getElementById('btn-upload-song');
             const title = document.getElementById('s-title').value;
+            const artist = document.getElementById('s-artist').value;
+            const album = document.getElementById('s-album').value;
+            
             const coverFile = document.getElementById('s-cover').files[0];
             const audioFile = document.getElementById('s-audio').files[0];
 
             if(!title) { alert("Title required!"); return; }
-            // Audio check removed for Lyrics-only mode as requested previously
 
             btn.disabled = true; status.innerText = isEditingSong ? "Updating..." : "Uploading..."; status.className = "status";
 
             try {
-                let finalCoverUrl = isEditingSong ? currentSongData.cover_url : "https://via.placeholder.com/300";
-                let finalAudioUrl = isEditingSong ? currentSongData.mp3_url : "";
+                // 1. Determine Cover URL
+                let finalCoverUrl = "https://via.placeholder.com/300";
 
-                if(audioFile) {
-                    const audioName = `music/${Date.now()}-${audioFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
-                    await db.storage.from('audio_assets').upload(audioName, audioFile);
-                    const { data } = db.storage.from('audio_assets').getPublicUrl(audioName);
-                    finalAudioUrl = data.publicUrl;
+                if (isEditingSong) {
+                    finalCoverUrl = currentSongData.cover_url; 
+                } else {
+                    // SMART CHECK: Does this album already exist?
+                    // If user didn't upload a file, try to find a cover from the existing album
+                    const existingSongInAlbum = allSongs.find(s => s.album.toLowerCase() === album.toLowerCase() && s.cover_url);
+                    if (existingSongInAlbum) {
+                        finalCoverUrl = existingSongInAlbum.cover_url;
+                        console.log("Auto-detected album cover from:", existingSongInAlbum.title);
+                    }
                 }
+
+                // If user manually uploaded a file, OVERRIDE everything
                 if(coverFile) {
                     const coverName = `covers/${Date.now()}-${coverFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
                     await db.storage.from('audio_assets').upload(coverName, coverFile);
@@ -455,18 +589,36 @@
                     finalCoverUrl = data.publicUrl;
                 }
 
+                // 2. Audio URL Logic
+                let finalAudioUrl = isEditingSong ? currentSongData.mp3_url : "";
+                if(audioFile) {
+                    const audioName = `music/${Date.now()}-${audioFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                    await db.storage.from('audio_assets').upload(audioName, audioFile);
+                    const { data } = db.storage.from('audio_assets').getPublicUrl(audioName);
+                    finalAudioUrl = data.publicUrl;
+                }
+
+                // 3. Ranking Logic
+                let newRank = 999;
+                if (isEditingSong) {
+                    newRank = currentSongData.popular_order || 999;
+                } else {
+                    const maxRank = allSongs.reduce((max, s) => (s.popular_order > max ? s.popular_order : max), 0);
+                    newRank = maxRank + 1;
+                }
+
                 const songData = {
                     title: title,
-                    artist: document.getElementById('s-artist').value,
-                    album: document.getElementById('s-album').value,
+                    artist: artist,
+                    album: album,
                     type: document.getElementById('s-type').value,
                     year: document.getElementById('s-year').value,
                     duration: document.getElementById('s-duration').value,
-                    is_popular: document.getElementById('s-popular').checked,
                     description: document.getElementById('s-desc').value,
                     lyrics: document.getElementById('s-lyrics').value,
                     cover_url: finalCoverUrl,
-                    mp3_url: finalAudioUrl
+                    mp3_url: finalAudioUrl,
+                    popular_order: newRank
                 };
 
                 if(isEditingSong) {

@@ -699,3 +699,10 @@ body.dark-mode .zz-card p {
 body.dark-mode .show-all-link {
     color: #ffffff !important;
 }
+
+/* Fix iPod Text Contrast in Dark Mode */
+body.dark-mode .track-info p {
+    color: #000000 !important; /* Forces the grey text to become black */
+    font-weight: 700;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3); /* Adds a small white shadow for better visibility */
+}

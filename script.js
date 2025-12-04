@@ -16,11 +16,11 @@ async function fetchSongs() {
     console.log("Fetching library...");
 
     // 1. Fetch Songs from Supabase
-    // We sort by 'year' descending initially so the "Discography" view looks correct
+    // We sort by 'popular_order' ASCENDING (1, 2, 3...)
     const { data: songData, error: songError } = await db
         .from('songs')
         .select('*')
-        .order('year', { ascending: false });
+        .order('popular_order', { ascending: true }); // <--- CHANGED TO POPULAR_ORDER
 
     // 2. Fetch Playlists
     const { data: playlistData, error: plError } = await db
@@ -32,7 +32,7 @@ async function fetchSongs() {
         return;
     }
 
-    // 3. Map the raw data to our clean 'songs' array
+    // 3. Map the raw data
     songs = songData.map(item => ({
         title: item.title,
         artist: item.artist,
@@ -42,41 +42,27 @@ async function fetchSongs() {
         duration: item.duration,
         src: item.mp3_url,
         cover: item.cover_url,
-        isPopular: item.is_popular,
+        // We map your new column here:
+        popularOrder: item.popular_order || 999, 
         description: item.description,
         lyrics: item.lyrics,
-        trackOrder: item.track_order || 0  // This is vital for Album ordering
+        trackOrder: item.track_order || 0
     }));
 
-    // 4. Update Playlists variable
-    if (playlistData) {
-        playlists = playlistData;
-    }
+    if (playlistData) playlists = playlistData;
 
     // --- NEW QUEUE LOGIC ---
     if (songs.length > 0) {
-        // A. Separate the songs into two groups
-        const popularOnes = songs.filter(s => s.isPopular);
-        const others = songs.filter(s => !s.isPopular);
-
-        // B. Create the "Play Queue"
-        // This puts Popular songs [1, 2, 3, 4, 5] at the front
-        // And puts the rest of the songs behind them.
-        playQueue = [...popularOnes, ...others];
-        
-        // C. Tell the player to start at the beginning of this new queue
+        // Since Supabase already sorted them by popular_order (1, 2, 3...),
+        // Our queue is simply the list of songs!
+        playQueue = [...songs];
         queueIndex = 0;
 
-        // D. Load the first song (Song #1 of Popular list)
         loadSong(playQueue[0]);
-        
-        // E. Draw the screen
         renderHome();
-        
-        // F. Show lyrics for the first song
         updateLyricsPanel(playQueue[0]);
     }
-}   
+}
 
 // --- 3. STANDARD VARIABLES ---
 const audio = new Audio();
@@ -113,11 +99,10 @@ function renderHome() {
     const container = document.querySelector('.middle-panel');
     if (!container) return; 
 
-    // Filter data
-    const popularSongs = songs.filter(s => s.isPopular).slice(0, 5);
+    // Take the Top 8 songs based on your ranking
+    const popularSongs = songs.slice(0, 8); 
     const releases = getUniqueReleases(); 
 
-    // Inject HTML
     container.innerHTML = `
         <div style="padding-bottom: 50px;">
             <h1 class="zz-title">ZIPPIYZAP’S AUDIOFOLIO</h1>
@@ -127,11 +112,15 @@ function renderHome() {
                 <span onclick="playAll()">Play</span> | <span onclick="toggleShuffle()">Shuffle</span>
             </div>
 
-            <h2 class="zz-section-title">Favorites (Popular)</h2>
+            <h2 class="zz-section-title">Favorites</h2>
+            
             <ul class="zz-popular-list">
                 ${popularSongs.map((song, i) => `
                     <li class="zz-row" onclick="playSpecificSong('${song.title.replace(/'/g, "\\'")}')">
-                        <div class="zz-row-left"><span class="row-num">${i + 1}.</span> <span>${song.title}</span></div>
+                        <div class="zz-row-left">
+                            <span class="row-num" style="color:#333; font-size:13px; font-weight:500; width:20px;">${i + 1}</span> 
+                            <span>${song.title}</span>
+                        </div>
                         <span class="t-dur">${song.duration}</span>
                     </li>
                 `).join('')}
@@ -153,10 +142,9 @@ function renderHome() {
                     </div>
                 `).join('')}
             </div>
+
              <h2 class="zz-section-title">About</h2>
-            
             <div class="zz-about-box" style="align-items: flex-start;">
-                <img src="https://via.placeholder.com/150" class="zz-about-img" style="object-fit: cover;">
                 <div class="zz-about-text">
                     <p style="font-weight: 500; font-size: 15px; margin-bottom: 10px;">
                         Writing the soundtrack for the main character moments you’re too scared to admit you’re having. Welcome to the archives.
@@ -166,24 +154,8 @@ function renderHome() {
                     </p>
                 </div>
             </div>
-            <br><br>
-
-            ${playlists.length > 0 ? `
-                <br>
-                <h2 class="zz-section-title">Artist Playlists</h2>
-                <div class="zz-grid">
-                    ${playlists.map(pl => `
-                        <div class="zz-card" onclick="renderPlaylistView('${pl.title.replace(/'/g, "\\'")}')">
-                            <div class="zz-cover-placeholder">
-                                <img src="${pl.cover_url || 'https://via.placeholder.com/150'}" style="width:100%; height:100%; object-fit:cover;">
-                            </div>
-                            <h4>${pl.title}</h4>
-                            <p>${pl.description || 'By Zephy'}</p>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : ''}
-
+            
+            ${playlists.length > 0 ? `<br><h2 class="zz-section-title">Artist Playlists</h2><div class="zz-grid">${playlists.map(pl => `<div class="zz-card" onclick="renderPlaylistView('${pl.title.replace(/'/g, "\\'")}')"><div class="zz-cover-placeholder"><img src="${pl.cover_url || 'https://via.placeholder.com/150'}" style="width:100%; height:100%; object-fit:cover;"></div><h4>${pl.title}</h4><p>${pl.description || 'By Zephy'}</p></div>`).join('')}</div>` : ''}
         </div>
     `;
 }
