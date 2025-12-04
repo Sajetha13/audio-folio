@@ -8,16 +8,19 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let songs = []; // Empty start, we fill this from DB
+let playQueue = [];   // The Current Playing Queue (Changes based on what you click)
+let queueIndex = 0;   // Where we are in the CURRENT queue
+let isShuffle = false;
 
-// --- 2. FETCH DATA (SONGS + PLAYLISTS) ---
 async function fetchSongs() {
     console.log("Fetching library...");
-    
-    // 1. Fetch Songs: SORT BY YEAR (Newest First)
+
+    // 1. Fetch Songs from Supabase
+    // We sort by 'year' descending initially so the "Discography" view looks correct
     const { data: songData, error: songError } = await db
         .from('songs')
         .select('*')
-        .order('year', { ascending: false }); // <--- BACK TO YEAR SORT
+        .order('year', { ascending: false });
 
     // 2. Fetch Playlists
     const { data: playlistData, error: plError } = await db
@@ -29,7 +32,7 @@ async function fetchSongs() {
         return;
     }
 
-    // Map Songs (ADD trackOrder here!)
+    // 3. Map the raw data to our clean 'songs' array
     songs = songData.map(item => ({
         title: item.title,
         artist: item.artist,
@@ -42,23 +45,38 @@ async function fetchSongs() {
         isPopular: item.is_popular,
         description: item.description,
         lyrics: item.lyrics,
-        trackOrder: item.track_order || 0 // <--- NEW: Read the order number
+        trackOrder: item.track_order || 0  // This is vital for Album ordering
     }));
 
-    // Map Playlists
+    // 4. Update Playlists variable
     if (playlistData) {
         playlists = playlistData;
     }
 
-    // Initialize
+    // --- NEW QUEUE LOGIC ---
     if (songs.length > 0) {
-        loadSong(songs[0]);
+        // A. Separate the songs into two groups
+        const popularOnes = songs.filter(s => s.isPopular);
+        const others = songs.filter(s => !s.isPopular);
+
+        // B. Create the "Play Queue"
+        // This puts Popular songs [1, 2, 3, 4, 5] at the front
+        // And puts the rest of the songs behind them.
+        playQueue = [...popularOnes, ...others];
+        
+        // C. Tell the player to start at the beginning of this new queue
+        queueIndex = 0;
+
+        // D. Load the first song (Song #1 of Popular list)
+        loadSong(playQueue[0]);
+        
+        // E. Draw the screen
         renderHome();
-        const firstPop = songs.find(s => s.isPopular);
-        if(firstPop) updateLyricsPanel(firstPop);
-        else updateLyricsPanel(songs[0]);
+        
+        // F. Show lyrics for the first song
+        updateLyricsPanel(playQueue[0]);
     }
-}
+}   
 
 // --- 3. STANDARD VARIABLES ---
 const audio = new Audio();
@@ -66,6 +84,7 @@ let songIndex = 0;
 let isPlaying = false;
 let playMode = 0; 
 let playlists = [];
+let currentContext = null; // Tracks if we are playing 'album' or 'playlist' context
 
 // Elements
 const playerTitle = document.getElementById('player-title');
@@ -98,7 +117,7 @@ function renderHome() {
     const popularSongs = songs.filter(s => s.isPopular).slice(0, 5);
     const releases = getUniqueReleases(); 
 
-    // Inject HTML (This overwrites the Skeleton Loader)
+    // Inject HTML
     container.innerHTML = `
         <div style="padding-bottom: 50px;">
             <h1 class="zz-title">ZIPPIYZAP’S AUDIOFOLIO</h1>
@@ -111,7 +130,7 @@ function renderHome() {
             <h2 class="zz-section-title">Favorites (Popular)</h2>
             <ul class="zz-popular-list">
                 ${popularSongs.map((song, i) => `
-                    <li class="zz-row" onclick="playSpecificSong('${song.title}')">
+                    <li class="zz-row" onclick="playSpecificSong('${song.title.replace(/'/g, "\\'")}')">
                         <div class="zz-row-left"><span class="row-num">${i + 1}.</span> <span>${song.title}</span></div>
                         <span class="t-dur">${song.duration}</span>
                     </li>
@@ -125,7 +144,7 @@ function renderHome() {
             
             <div class="zz-grid">
                 ${releases.map(release => `
-                    <div class="zz-card" onclick="renderAlbumView('${release.name}')">
+                    <div class="zz-card" onclick="renderAlbumView('${release.name.replace(/'/g, "\\'")}')">
                         <div class="zz-cover-placeholder">
                             ${release.cover ? `<img src="${release.cover}" style="width:100%; height:100%; object-fit:cover;">` : '[cover]'}
                         </div>
@@ -137,9 +156,7 @@ function renderHome() {
              <h2 class="zz-section-title">About</h2>
             
             <div class="zz-about-box" style="align-items: flex-start;">
-                
                 <img src="https://via.placeholder.com/150" class="zz-about-img" style="object-fit: cover;">
-                
                 <div class="zz-about-text">
                     <p style="font-weight: 500; font-size: 15px; margin-bottom: 10px;">
                         Writing the soundtrack for the main character moments you’re too scared to admit you’re having. Welcome to the archives.
@@ -156,7 +173,7 @@ function renderHome() {
                 <h2 class="zz-section-title">Artist Playlists</h2>
                 <div class="zz-grid">
                     ${playlists.map(pl => `
-                        <div class="zz-card" onclick="renderPlaylistView('${pl.title}')">
+                        <div class="zz-card" onclick="renderPlaylistView('${pl.title.replace(/'/g, "\\'")}')">
                             <div class="zz-cover-placeholder">
                                 <img src="${pl.cover_url || 'https://via.placeholder.com/150'}" style="width:100%; height:100%; object-fit:cover;">
                             </div>
@@ -169,8 +186,6 @@ function renderHome() {
 
         </div>
     `;
-
-    
 }
 
 // --- B. RENDER "SHOW ALL" (New Spotify-List Style) ---
@@ -240,7 +255,10 @@ function generateReleaseHTML(release) {
     // Filter AND Sort by Track Order
     const tracks = songs
         .filter(s => s.album === release.name)
-        .sort((a, b) => a.trackOrder - b.trackOrder); // <--- THE FIX
+        .sort((a, b) => (a.trackOrder || 0) - (b.trackOrder || 0));
+
+    // SAFE ESCAPE for Album Name
+    const safeAlbumName = release.name.replace(/'/g, "\\'");
 
     return `
     <div class="zz-release-container">
@@ -250,7 +268,7 @@ function generateReleaseHTML(release) {
                 <span class="release-type">${release.type}</span>
                 <div class="release-title">${release.name}</div>
                 <div class="release-meta">
-                    <button class="play-btn-black" onclick="playAlbum('${release.name}')">
+                    <button class="play-btn-black" onclick="playAlbum('${safeAlbumName}')">
                         <i class="fas fa-play"></i>
                     </button>
                     <span>${release.year} • ${tracks.length} Songs</span>
@@ -260,7 +278,7 @@ function generateReleaseHTML(release) {
 
         <ul class="zz-track-list">
             ${tracks.map((song, i) => `
-                <li class="zz-track-row" onclick="playSpecificSong('${song.title}')">
+                <li class="zz-track-row" onclick="playSpecificSong('${song.title.replace(/'/g, "\\'")}')">
                     <span class="track-idx">${i + 1}</span>
                     <span class="track-name">${song.title}</span>
                     <span class="track-time">${song.duration}</span>
@@ -271,29 +289,68 @@ function generateReleaseHTML(release) {
     `;
 }
 
+// Fisher-Yates Shuffle Algorithm (The Industry Standard)
+function shuffleArray(array) {
+    let currentIndex = array.length, randomIndex;
+
+    // While there remain elements to shuffle.
+    while (currentIndex != 0) {
+        // Pick a remaining element.
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+
+        // And swap it with the current element.
+        [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+    }
+    return array;
+}
+
 // --- HELPER: Play Album Context (Smart Toggle) ---
 function playAlbum(albumName) {
     // 1. Check if we are ALREADY playing this album
-    const currentSong = songs[songIndex];
-    if (currentSong && currentSong.album === albumName) {
+    if (currentContext === `album:${albumName}`) {
         if (isPlaying) pauseSong();
         else playSong();
-        return; // Stop here, don't restart!
+        return; // Stop here, don't reload!
     }
 
-    // 2. If not, find tracks for this album
-    // Sort by trackOrder to ensure we start at Track 1
+    // 2. Prepare Queue
     const albumTracks = songs
         .filter(s => s.album === albumName)
         .sort((a, b) => (a.trackOrder || 0) - (b.trackOrder || 0));
 
-    // 3. Find the FIRST track that actually has Audio
-    const firstPlayable = albumTracks.find(s => s.src && s.src !== "");
+    if (albumTracks.length === 0) return;
 
-    if(firstPlayable) {
-        playSpecificSong(firstPlayable.title);
-    } else {
-        alert("This album is Lyrics-Only (No audio found).");
+    // 3. Set Context & Queue
+    currentContext = `album:${albumName}`;
+    playQueue = albumTracks;
+    queueIndex = 0;
+    isShuffle = false; 
+
+    // 4. Play
+    console.log(`Context locked to Album: ${albumName}`);
+    loadSong(playQueue[queueIndex]);
+    playSong();
+}
+
+// Helper to restore order based on where we are (Album vs Home)
+function restoreQueueOrder() {
+    if (currentContext && currentContext.startsWith('album:')) {
+        const albumName = currentContext.split('album:')[1];
+        playQueue = songs.filter(s => s.album === albumName)
+                         .sort((a, b) => (a.trackOrder || 0) - (b.trackOrder || 0));
+    } 
+    else if (currentContext && currentContext.startsWith('playlist:')) {
+        const plTitle = currentContext.split('playlist:')[1];
+        const pl = playlists.find(p => p.title === plTitle);
+        if (pl) playQueue = songs.filter(s => pl.songs.includes(s.title));
+    } 
+    else {
+        // Default Home: Popular + Others
+        const popularOnes = songs.filter(s => s.isPopular);
+        const others = songs.filter(s => !s.isPopular);
+        playQueue = [...popularOnes, ...others];
     }
 }
 
@@ -310,12 +367,35 @@ function getUniqueReleases() {
     return unique;
 }
 
+// Logic for playing a specific song from a list click
 function playSpecificSong(title) {
-    const index = songs.findIndex(s => s.title === title);
-    if(index !== -1) {
-        songIndex = index;
-        loadSong(songs[songIndex]);
+    // If we are just clicking a song from the "Show All" or "Home" list,
+    // we usually want to play that song, and then continue with the CURRENT queue
+    // OR reset the queue to the master list starting from that song.
+    
+    // For simplicity: Let's find the song in the CURRENT queue.
+    let idx = playQueue.findIndex(s => s.title === title);
+
+    if (idx !== -1) {
+        // It's in the current queue (e.g. inside the album we are viewing)
+        queueIndex = idx;
+    } else {
+        // It's not in the current queue (e.g. we clicked a popular song while inside an album view)
+        // Reset queue to All Songs (prioritizing popular) or just find it in master
+        // This prevents the "Context Leak"
+        playQueue = songs; // Reset to master list
+        queueIndex = songs.findIndex(s => s.title === title);
+    }
+    // --- NEW: Safety Check ---
+    const songToPlay = playQueue[queueIndex];
+    loadSong(songToPlay);
+    
+    // Only play if there is actually audio!
+    if(songToPlay.src && songToPlay.src !== "") {
         playSong();
+    } else {
+        console.log("Clicked song has no audio (Lyrics Only).");
+        // We loaded the lyrics, but we don't start the player.
     }
 }
 
@@ -345,6 +425,7 @@ function renderPlaylistView(playlistTitle) {
 
     // Filter songs that match the titles in playlist.songs array
     const playlistTracks = songs.filter(s => playlist.songs.includes(s.title));
+    const safePlTitle = playlist.title.replace(/'/g, "\\'");
 
     container.innerHTML = `
         <div style="padding-bottom: 50px;">
@@ -361,7 +442,7 @@ function renderPlaylistView(playlistTitle) {
                         <span class="release-type">PLAYLIST</span>
                         <div class="release-title">${playlist.title}</div>
                         <div class="release-meta">
-                            <button class="play-btn-black" onclick="playPlaylist('${playlist.title}')">
+                            <button class="play-btn-black" onclick="playPlaylist('${safePlTitle}')">
                                 <i class="fas fa-play"></i>
                             </button>
                             <span>${playlist.description} • ${playlistTracks.length} Songs</span>
@@ -371,7 +452,7 @@ function renderPlaylistView(playlistTitle) {
 
                 <ul class="zz-track-list">
                     ${playlistTracks.map((song, i) => `
-                        <li class="zz-track-row" onclick="playSpecificSong('${song.title}')">
+                        <li class="zz-track-row" onclick="playSpecificSong('${song.title.replace(/'/g, "\\'")}')">
                             <span class="track-idx">${i + 1}</span>
                             <span class="track-name">${song.title}</span>
                             <span class="track-time">${song.duration}</span>
@@ -385,35 +466,29 @@ function renderPlaylistView(playlistTitle) {
 
 // --- HELPER: Play Playlist Context (Smart Toggle) ---
 function playPlaylist(playlistTitle) {
-    const playlist = playlists.find(p => p.title === playlistTitle);
-    if(!playlist) return;
-
-    // 1. Check if we are ALREADY playing a song from this playlist
-    const currentSong = songs[songIndex];
-    // (Simple check: is the current song title inside this playlist?)
-    if (currentSong && playlist.songs.includes(currentSong.title)) {
+    // 1. Check if we are ALREADY playing this playlist
+    if (currentContext === `playlist:${playlistTitle}`) {
         if (isPlaying) pauseSong();
         else playSong();
         return;
     }
 
-    // 2. Find first playable song in playlist
-    // We have to check the order of titles in the playlist array
-    let firstPlayableTitle = null;
-    
-    for (let title of playlist.songs) {
-        const s = songs.find(song => song.title === title);
-        if (s && s.src && s.src !== "") {
-            firstPlayableTitle = title;
-            break; // Found the first valid one
-        }
-    }
+    const playlist = playlists.find(p => p.title === playlistTitle);
+    if(!playlist) return;
 
-    if (firstPlayableTitle) {
-        playSpecificSong(firstPlayableTitle);
-    } else {
-        alert("This playlist has no playable audio.");
-    }
+    const playlistTracks = songs.filter(s => playlist.songs.includes(s.title));
+    if (playlistTracks.length === 0) return;
+
+    // 2. Set Context & Queue
+    currentContext = `playlist:${playlistTitle}`;
+    playQueue = playlistTracks;
+    queueIndex = 0;
+    isShuffle = false;
+
+    // 3. Play
+    console.log(`Context locked to Playlist: ${playlistTitle}`);
+    loadSong(playQueue[queueIndex]);
+    playSong();
 }
 
 function loadSong(song) {
@@ -443,112 +518,181 @@ function loadSong(song) {
 
 function playSong() { isPlaying = true; audio.play(); }
 function pauseSong() { isPlaying = false; audio.pause(); }
-function toggleShuffle() { playMode = 1; iconShuffle.classList.remove('hidden'); let newIndex = Math.floor(Math.random() * songs.length); songIndex = newIndex; loadSong(songs[songIndex]); playSong(); }
-function playAll() { playMode = 0; songIndex = 0; loadSong(songs[songIndex]); playSong(); }
+function toggleShuffle() {
+    playMode = 1; // Force Shuffle Mode
+    
+    // 1. Randomize the Queue immediately
+    // We use [...songs] to include ALL songs in the shuffle
+    playQueue = shuffleArray([...songs]);
+    
+    // 2. Play the first song of the new random list
+    queueIndex = 0;
+    
+    console.log("Shuffle Link Clicked: Playing random song...");
+    loadSong(playQueue[queueIndex]);
+    playSong();
+
+    // 3. Update Icons
+    iconShuffle.classList.remove('hidden');
+    iconRepeat.classList.add('hidden');
+    iconRepeat1.classList.add('hidden');
+    playerAlbum.innerText = "Mode: Shuffle";
+}
+
+function playAll() { 
+    playMode = 0; // Force Normal Mode
+    currentContext = 'all'; 
+    
+    // 1. Reset Queue to Normal (Popular First)
+    const popularOnes = songs.filter(s => s.isPopular);
+    const others = songs.filter(s => !s.isPopular);
+    playQueue = [...popularOnes, ...others];
+    
+    // 2. Play first song
+    queueIndex = 0; 
+    loadSong(playQueue[0]); 
+    playSong(); 
+
+    // 3. Update Icon visibility
+    iconShuffle.classList.add('hidden');
+    iconRepeat.classList.add('hidden');
+    iconRepeat1.classList.add('hidden');
+}
 
 // --- PLAYER LOGIC (Smart Skip) ---
 
 function nextSong() {
-    // Strict Repeat One Rule
-    if (playMode === 4) { 
-        if (songs[songIndex].src) { 
-            audio.currentTime = 0; 
-            playSong(); 
-        }
-        return; 
+    // MODE 4: REPEAT ONE (Loop One Song Forever)
+    if (playMode === 4) {
+        audio.currentTime = 0;
+        playSong();
+        return;
     }
 
-    let nextIndex = songIndex;
-    let attempts = 0;
-    let foundPlayable = false;
+    // Move to next index
+    queueIndex++;
 
-    // Loop to find next playable track
-    while (attempts < songs.length) {
-        // Calculate next index based on mode
-        if (playMode === 1 || playMode === 2) {
-            // Shuffle
-            let rand;
-            do { rand = Math.floor(Math.random() * songs.length); } 
-            while (rand === nextIndex && songs.length > 1);
-            nextIndex = rand;
-        } else {
-            // Normal Order
-            nextIndex++;
-            if (nextIndex > songs.length - 1) {
-                if (playMode === 3) nextIndex = 0; // Loop All
-                else return; // Stop at end
-            }
-        }
-
-        // CHECK: Does this song have audio?
-        if (songs[nextIndex].src && songs[nextIndex].src !== "") {
-            foundPlayable = true;
-            break; // Found one! Stop looking.
-        }
+    // CHECK IF QUEUE FINISHED
+    if (queueIndex >= playQueue.length) {
         
-        attempts++;
+        if (playMode === 2) {
+            // MODE 2: ENDLESS (Shuffle + Repeat)
+            // Reshuffle the current queue to get a new order
+            playQueue = shuffleArray(playQueue);
+            queueIndex = 0; // Start new random order
+            console.log("Endless Mode: Reshuffling...");
+            loadSong(playQueue[queueIndex]);
+            playSong();
+            return;
+
+        } else if (playMode === 3) {
+            // MODE 3: LOOP ALL (Repeat Album in Order)
+            queueIndex = 0; // Go back to start
+            console.log("Loop All: Restarting queue...");
+            loadSong(playQueue[queueIndex]);
+            playSong();
+            return;
+
+        } else {
+            // MODE 0 or 1: Stop at end
+            console.log("End of Queue.");
+            pauseSong();
+            return;
+        }
     }
 
-    if (foundPlayable) {
-        songIndex = nextIndex;
-        loadSong(songs[songIndex]);
+    // NORMAL NEXT SONG
+    const nextTrack = playQueue[queueIndex];
+
+    // Check Audio exists
+    if (nextTrack.src && nextTrack.src !== "") {
+        loadSong(nextTrack);
         playSong();
     } else {
-        // If we looped through everything and found nothing
-        console.log("No playable songs found in queue.");
-        pauseSong();
+        console.log("Skipping lyrics-only track...");
+        nextSong(); // Recursion to skip
     }
 }
 
 function prevSong() {
-    // Strict Repeat One
-    if (playMode === 4) { 
-        if (songs[songIndex].src) { audio.currentTime = 0; playSong(); }
-        return; 
-    }
+    // Standard restart logic
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }
 
-    // Normal Restart Rule
-    if (audio.currentTime > 3) { 
-        audio.currentTime = 0; 
-        return; 
-    } 
+    queueIndex--;
+    if (queueIndex < 0) {
+        queueIndex = 0; // Don't loop to back, just stay at start
+    }
     
-    let prevIndex = songIndex;
-    let attempts = 0;
-    let foundPlayable = false;
-
-    // Loop BACKWARDS to find playable track
-    while (attempts < songs.length) {
-        prevIndex--;
-        if (prevIndex < 0) prevIndex = songs.length - 1;
-
-        // CHECK: Audio exists?
-        if (songs[prevIndex].src && songs[prevIndex].src !== "") {
-            foundPlayable = true;
-            break;
-        }
-        attempts++;
-    }
-
-    if (foundPlayable) {
-        songIndex = prevIndex;
-        loadSong(songs[songIndex]);
-        playSong();
-    }
+    loadSong(playQueue[queueIndex]);
+    playSong();
 }
+
 
 // --- 6. EVENT LISTENERS ---
 menuBtn.addEventListener('click', () => {
-    playMode++; if (playMode > 4) playMode = 0;
-    iconShuffle.classList.add('hidden'); iconRepeat.classList.add('hidden'); iconRepeat1.classList.add('hidden');
-    switch (playMode) {
-        case 1: iconShuffle.classList.remove('hidden'); playerAlbum.innerText = "Mode: Shuffle"; break;
-        case 2: iconShuffle.classList.remove('hidden'); iconRepeat.classList.remove('hidden'); playerAlbum.innerText = "Mode: Endless"; break;
-        case 3: iconRepeat.classList.remove('hidden'); playerAlbum.innerText = "Mode: Loop All"; break;
-        case 4: iconRepeat1.classList.remove('hidden'); playerAlbum.innerText = "Mode: Loop One"; break;
-        default: playerAlbum.innerText = "Mode: Normal"; break;
+    // 1. Cycle Mode
+    playMode++; 
+    if (playMode > 4) playMode = 0;
+
+    // 2. Hide all icons first (we'll show the right one below)
+    iconShuffle.classList.add('hidden'); 
+    iconRepeat.classList.add('hidden'); 
+    iconRepeat1.classList.add('hidden');
+
+    // 3. HANDLE QUEUE ORDER BASED ON MODE
+    if (playMode === 1 || playMode === 2) {
+        // === SHUFFLE OR ENDLESS ===
+        // We need to randomize the queue immediately!
+        
+        const currentSong = playQueue[queueIndex]; // Remember current song
+        
+        // If we are in an album, shuffle THAT album. If Home, shuffle ALL.
+        let songsToShuffle = [];
+        if (currentContext && currentContext.startsWith('album:')) {
+            const albumName = currentContext.split('album:')[1];
+            songsToShuffle = songs.filter(s => s.album === albumName);
+        } else if (currentContext && currentContext.startsWith('playlist:')) {
+             const plTitle = currentContext.split('playlist:')[1];
+             const pl = playlists.find(p => p.title === plTitle);
+             if (pl) songsToShuffle = songs.filter(s => pl.songs.includes(s.title));
+        } else {
+            songsToShuffle = [...songs];
+        }
+
+        playQueue = shuffleArray(songsToShuffle);
+
+        // Find current song in new mess so we don't skip it
+        if(currentSong) {
+            let newIdx = playQueue.findIndex(s => s.title === currentSong.title);
+            queueIndex = newIdx !== -1 ? newIdx : 0;
+        }
+
+        iconShuffle.classList.remove('hidden');
+        if (playMode === 2) iconRepeat.classList.remove('hidden'); // Endless has both icons
+        playerAlbum.innerText = (playMode === 1) ? "Mode: Shuffle" : "Mode: Endless";
+
+    } else {
+        // === NORMAL, LOOP ALL, OR REPEAT ONE ===
+        // We need to restore the correct order (1, 2, 3...)
+        
+        const currentSong = playQueue[queueIndex];
+        restoreQueueOrder(); // Call the helper from Part 1
+        
+        // Find current song in the sorted list
+        if(currentSong) {
+            let newIdx = playQueue.findIndex(s => s.title === currentSong.title);
+            queueIndex = newIdx !== -1 ? newIdx : 0;
+        }
+
+        if (playMode === 3) iconRepeat.classList.remove('hidden');
+        if (playMode === 4) iconRepeat1.classList.remove('hidden');
+        
+        playerAlbum.innerText = (playMode === 3) ? "Mode: Loop All" : 
+                                (playMode === 4) ? "Mode: Loop One" : "Mode: Normal";
     }
-    setTimeout(() => { playerAlbum.innerText = songs[songIndex]?.album || 'Unknown'; }, 1500);
+
+    // Reset text after 1.5s
+    setTimeout(() => { playerAlbum.innerText = playQueue[queueIndex]?.album || 'Unknown'; }, 1500);
 });
 
 playBtn.addEventListener('click', () => isPlaying ? pauseSong() : playSong());
